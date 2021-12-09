@@ -26,6 +26,11 @@ ap.add_argument("-s", "--skip-frames", type=int, default=30,
                 help="# of skip frames between detections")
 args = vars(ap.parse_args())
 
+# Person dict for better Direction detection
+person_dict = dict()
+frame_counts = 110
+frame_counts_up = 60
+
 # initialize the list of class labels MobileNet SSD was trained to
 # detect
 CLASSES = ["background", "person"]
@@ -94,7 +99,7 @@ while True:
                        [-1, 9, -1],
                        [-1, -1, -1]])
     frame = cv2.filter2D(frame, -1, kernel)
-    
+
     rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
     # if the frame dimensions are empty, set them
@@ -182,10 +187,11 @@ while True:
             # add the bounding box coordinates to the rectangles list
             rects.append((startX, startY, endX, endY))
 
-    # draw a horizontal line in the center of the frame -- once an
+    # draw 2 horizontal lines in the center of the frame -- once an
     # object crosses this line we will determine whether they were
     # moving 'up' or 'down'
-    cv2.line(frame, (0, H // 2), (W, H // 2), (0, 255, 255), 2)
+    cv2.line(frame, (0, H // 5), (W, H // 5), (0, 255, 255), 2)
+    cv2.line(frame, (0, H // 3 * 2), (W, H // 3 * 2), (0, 255, 255), 2)
 
     # use the centroid tracker to associate the (1) old object
     # centroids with (2) the newly computed object centroids
@@ -217,22 +223,27 @@ while True:
                 # if the direction is negative (indicating the object
                 # is moving up) AND the centroid is above the center
                 # line, count the object
-                if direction < 0 and centroid[1] < H // 2:
+                if direction < 0 and centroid[1] < H // 3 and person_dict[str(objectID)] > frame_counts_up:
                     totalUp += 1
                     to.counted = True
 
                 # if the direction is positive (indicating the object
                 # is moving down) AND the centroid is below the
                 # center line, count the object
-                elif direction > 0 and centroid[1] > H // 2:
-                    totalDown += 1
-                    to.counted = True
+                elif direction > 0 and centroid[1] > H // 3 * 2:
+                    if person_dict[str(objectID)] > frame_counts:
+                        totalDown += 1
+                        to.counted = True
 
         # store the trackable object in our dictionary
         trackableObjects[objectID] = to
 
         # draw both the ID of the object and the centroid of the
         # object on the output frame
+        if str(objectID) in person_dict:
+            person_dict[str(objectID)] += 1
+        else:
+            person_dict[str(objectID)] = 0
         text = "ID {}".format(objectID)
         cv2.putText(frame, text, (centroid[0] - 10, centroid[1] - 10),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
