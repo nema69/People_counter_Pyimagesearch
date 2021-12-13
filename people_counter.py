@@ -1,6 +1,8 @@
 # import the necessary packages
 from pyimagesearch.centroidtracker import CentroidTracker
 from pyimagesearch.trackableobject import TrackableObject
+from write_csv import create_csv_file
+from write_csv import write_new_value
 from imutils.video import VideoStream
 from imutils.video import FPS
 import numpy as np
@@ -31,6 +33,10 @@ person_dict = dict()
 frame_counts = 110
 frame_counts_up = 60
 
+# Setup csv file
+current_file = create_csv_file()
+print('Printing to: %s' % current_file)
+total = 0
 # initialize the list of class labels MobileNet SSD was trained to
 # detect
 CLASSES = ["background", "person"]
@@ -270,6 +276,21 @@ while True:
     # show the output frame
     cv2.imshow("Frame", frame)
     key = cv2.waitKey(1) & 0xFF
+
+    # Write new info to csv file
+    # Determine if total has gone up
+    if total < totalUp + totalDown:
+
+        if totalUp > last_totalUp:  # Determine Direction
+            direction = 'up'
+        else:
+            direction = 'down'
+
+        total = totalUp + totalDown  # Calculate total
+        write_new_value(current_file, direction, total)  # Write new values to file
+
+    last_totalUp = totalUp
+    last_totalDown = totalDown
 
     # if the `q` key was pressed, break from the loop
     if key == ord("q"):
