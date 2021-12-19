@@ -4,7 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="08e13f96-c83b-434a-a5cc-f919fffbfe2c" name="Changes" comment="Es wird ein csv mit den counter daten erzeugt">
+    <list default="true" id="08e13f96-c83b-434a-a5cc-f919fffbfe2c" name="Changes" comment="gitignore hinzugefügt und output avi entfernt">
+      <change afterPath="$PROJECT_DIR$/dlibmultitracker.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -26,6 +27,7 @@
       </map>
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+    <option name="RESET_MODE" value="MIXED" />
   </component>
   <component name="GitSEFilterConfiguration">
     <file-type-list>
@@ -52,7 +54,7 @@
       <recent name="E:\Daten\Code\People_counter_Pyimagesearch" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.people_counter">
+  <component name="RunManager" selected="Python.dlibmultitracker">
     <configuration name="csv_test" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="People_counter_Pyimagesearch" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -67,6 +69,27 @@
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <option name="SCRIPT_NAME" value="$PROJECT_DIR$/csv_test.py" />
       <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="dlibmultitracker" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="People_counter_Pyimagesearch" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/dlibmultitracker.py" />
+      <option name="PARAMETERS" value="--prototxt mobilenet_ssd/MBSSD_PED_deploy.prototxt --model mobilenet_ssd/MBSSD_PED.caffemodel  --input videos/MOT20-02.webm --output output/output_01.avi --confidence 0.2" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
       <option name="MODULE_MODE" value="false" />
@@ -116,8 +139,15 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+    <list>
+      <item itemvalue="Python.people_counter" />
+      <item itemvalue="Python.csv_test" />
+      <item itemvalue="Python.dlibmultitracker" />
+      <item itemvalue="Python.write_csv" />
+    </list>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.dlibmultitracker" />
         <item itemvalue="Python.csv_test" />
         <item itemvalue="Python.write_csv" />
       </list>
@@ -160,7 +190,21 @@
       <option name="project" value="LOCAL" />
       <updated>1639417084288</updated>
     </task>
-    <option name="localTasksCounter" value="5" />
+    <task id="LOCAL-00005" summary="Es wird ein csv mit den counter daten erzeugt">
+      <created>1639417547095</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1639417547095</updated>
+    </task>
+    <task id="LOCAL-00006" summary="gitignore hinzugefügt und output avi entfernt">
+      <created>1639417636381</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1639417636381</updated>
+    </task>
+    <option name="localTasksCounter" value="7" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -190,17 +234,7 @@
   <component name="VcsManagerConfiguration">
     <MESSAGE value="Bild wird mit Kernel geschärft - verbessert detection deutlich&#10;&#10;Bessere Counter Linien" />
     <MESSAGE value="Es wird ein csv mit den counter daten erzeugt" />
-    <option name="LAST_COMMIT_MESSAGE" value="Es wird ein csv mit den counter daten erzeugt" />
-  </component>
-  <component name="XDebuggerManager">
-    <breakpoint-manager>
-      <breakpoints>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/people_counter.py</url>
-          <line>37</line>
-          <option name="timeStamp" value="5" />
-        </line-breakpoint>
-      </breakpoints>
-    </breakpoint-manager>
+    <MESSAGE value="gitignore hinzugefügt und output avi entfernt" />
+    <option name="LAST_COMMIT_MESSAGE" value="gitignore hinzugefügt und output avi entfernt" />
   </component>
 </project>
