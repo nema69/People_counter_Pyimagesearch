@@ -1,11 +1,13 @@
 # import the necessary packages
 from imutils.video import FPS
 import multiprocessing
+from multiprocessing import Pool
 import numpy as np
 import argparse
 import imutils
 import dlib
 import cv2
+from os import getpid
 
 
 def start_tracker(box, label, rgb, inputQueue, outputQueue):
@@ -14,7 +16,7 @@ def start_tracker(box, label, rgb, inputQueue, outputQueue):
     t = dlib.correlation_tracker()
     rect = dlib.rectangle(box[0], box[1], box[2], box[3])
     t.start_track(rgb, rect)
-
+    tracker_confidence = 9
     # loop indefinitely -- this function will be called as a daemon
     # process so we don't need to worry about joining it
     while True:
@@ -24,7 +26,9 @@ def start_tracker(box, label, rgb, inputQueue, outputQueue):
         if rgb is not None:
             # update the tracker and grab the position of the tracked
             # object
-            t.update(rgb)
+            tracker_confidence = t.update(rgb)
+            print("ProcessID:{}".format(getpid()))
+            print("Confidence: {}".format(tracker_confidence))
             pos = t.get_position()
             # unpack the position object
             startX = int(pos.left())
@@ -33,7 +37,60 @@ def start_tracker(box, label, rgb, inputQueue, outputQueue):
             endY = int(pos.bottom())
             # add the label + bounding box coordinates to the output
             # queue
-            outputQueue.put((label, (startX, startY, endX, endY)))
+            outputQueue.put((label, (startX, startY, endX, endY), tracker_confidence))
+
+        i#f tracker_confidence < 8:
+        #    return
+
+
+def preprocess_frame(input_frame, desired_width):
+
+    resized_frame = imutils.resize(input_frame, width=desired_width)
+
+    kernel = np.array([[-1, -1, -1],
+                       [-1, 9, -1],
+                       [-1, -1, -1]])
+
+    sharpened_frame = cv2.filter2D(resized_frame, -1, kernel)
+
+    output_frame = cv2.cvtColor(sharpened_frame, cv2.COLOR_BGR2RGB)
+
+    return output_frame
+
+
+def run_detection_on_frame(input_frame):
+    # grab the frame dimensions and convert the frame to a blob
+    (h, w) = input_frame.shape[:2]
+    blob = cv2.dnn.blobFromImage(input_frame, 0.007843, (w, h), 127.5)
+    # pass the blob through the network and obtain the detections
+    # and predictions
+    net.setInput(blob)
+    output_detections = net.forward()
+
+    return output_detections
+
+
+def filter_detections(input_detections, min_confidence, classes, desired_class):
+
+    for i in np.arange(0, input_detections.shape[2]):
+        # extract the confidence (i.e., probability) associated
+        # with the prediction
+        confidence = input_detections[0, 0, i, 2]
+        # filter out weak detections by requiring a minimum
+        # confidence
+        if confidence > min_confidence:
+            # extract the index of the class label from the
+            # detections list
+            idx = int(detections[0, 0, i, 1])
+            label_out = classes[idx]
+            # if the class label is not a person, ignore it
+            if CLASSES[idx] != desired_class:
+                continue
+
+
+#def build_list_of_bounding_boxes(filtered_detections):
+
+
 
 
 # construct the argument parse and parse the arguments
@@ -57,6 +114,9 @@ args = vars(ap.parse_args())
 inputQueues = []
 outputQueues = []
 
+skip_frames = args["skip_frames"]
+frames_since_detection = 0
+
 # initialize the list of class labels MobileNet SSD was trained to
 # detect
 CLASSES = ["background", "person"]
@@ -73,6 +133,7 @@ fps = FPS().start()
 
 # loop over frames from the video file stream
 while True:
+
     # grab the next frame from the video file
     (grabbed, frame) = vs.read()
     # check to see if we have reached the end of the video file
@@ -80,8 +141,8 @@ while True:
         break
     # resize the frame for faster processing and then convert the
     # frame from BGR to RGB ordering (dlib needs RGB ordering)
-    frame = imutils.resize(frame, width=600)
-    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    frame = preprocess_frame(frame, 500)
+    rgb = frame
     # if we are supposed to be writing a video to disk, initialize
     # the writer
     if args["output"] is not None and writer is None:
@@ -91,14 +152,12 @@ while True:
 
     # if our list of queues is empty then we know we have yet to
     # create our first object tracker
-    if len(inputQueues) == 0:
-        # grab the frame dimensions and convert the frame to a blob
-        (h, w) = frame.shape[:2]
-        blob = cv2.dnn.blobFromImage(frame, 0.007843, (w, h), 127.5)
-        # pass the blob through the network and obtain the detections
-        # and predictions
-        net.setInput(blob)
-        detections = net.forward()
+    if len(inputQueues) == 0 or frames_since_detection % skip_frames == 0:
+
+        detections = run_detection_on_frame(rgb)
+        frames_since_detection = 1
+
+        #bb, label = filter_detections(detections, args["confidence"], CLASSES, "person")
         # loop over the detections
         for i in np.arange(0, detections.shape[2]):
             # extract the confidence (i.e., probability) associated
@@ -117,6 +176,7 @@ while True:
 
                 # compute the (x, y)-coordinates of the bounding box
                 # for the object
+                (h, w) = frame.shape[:2]
                 box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
                 (startX, startY, endX, endY) = box.astype("int")
                 bb = (startX, startY, endX, endY)
@@ -126,6 +186,7 @@ while True:
                 oq = multiprocessing.Queue()
                 inputQueues.append(iq)
                 outputQueues.append(oq)
+
                 # spawn a daemon process for a new object tracker
                 p = multiprocessing.Process(
                     target=start_tracker,
@@ -138,6 +199,8 @@ while True:
                               (0, 255, 0), 2)
                 cv2.putText(frame, label, (startX, startY - 15),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 255, 0), 2)
+
+
     # otherwise, we've already performed detection so let's track
     # multiple objects
     else:
@@ -152,12 +215,17 @@ while True:
             # object -- the .get method is a blocking operation so
             # this will pause our execution until the respective
             # process finishes the tracking update
-            (label, (startX, startY, endX, endY)) = oq.get()
+            (label, (startX, startY, endX, endY), tracker_confidence) = oq.get()
+
+            #if tracker_confidence < 8:
+
             # draw the bounding box from the correlation object
             # tracker
             cv2.rectangle(frame, (startX, startY), (endX, endY),
                           (0, 255, 0), 2)
             cv2.putText(frame, label, (startX, startY - 15),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 255, 0), 2)
+            cv2.putText(frame, str(tracker_confidence), (startX, startY - 30),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 255, 0), 2)
 
         # check to see if we should write the frame to disk
@@ -171,6 +239,8 @@ while True:
             break
         # update the FPS counter
         fps.update()
+        frames_since_detection = frames_since_detection + 1
+        #print(frames_since_detection)
 # stop the timer and display FPS information
 fps.stop()
 print("[INFO] elapsed time: {:.2f}".format(fps.elapsed()))

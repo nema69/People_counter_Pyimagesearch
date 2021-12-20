@@ -5,8 +5,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="08e13f96-c83b-434a-a5cc-f919fffbfe2c" name="Changes" comment="gitignore hinzugefügt und output avi entfernt">
-      <change afterPath="$PROJECT_DIR$/dlibmultitracker.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/People_counter_Pyimagesearch.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/People_counter_Pyimagesearch.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dlibmultitracker.py" beforeDir="false" afterPath="$PROJECT_DIR$/dlibmultitracker.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -37,6 +41,9 @@
       <filtered-out-file-type name="COMMIT_BY_MESSAGE" />
     </file-type-list>
   </component>
+  <component name="MarkdownSettingsMigration">
+    <option name="stateVersion" value="1" />
+  </component>
   <component name="ProjectId" id="222oPDZp21OksmFBSrzy2boOIji" />
   <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
   <component name="ProjectViewState">
@@ -46,8 +53,9 @@
   <component name="PropertiesComponent">
     <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
     <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$/people_counter.py" />
-    <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
+    <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+    <property name="settings.editor.selected.configurable" value="editor.preferences.fonts.default" />
   </component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
@@ -89,7 +97,7 @@
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <option name="SCRIPT_NAME" value="$PROJECT_DIR$/dlibmultitracker.py" />
-      <option name="PARAMETERS" value="--prototxt mobilenet_ssd/MBSSD_PED_deploy.prototxt --model mobilenet_ssd/MBSSD_PED.caffemodel  --input videos/MOT20-02.webm --output output/output_01.avi --confidence 0.2" />
+      <option name="PARAMETERS" value="--prototxt mobilenet_ssd/MBSSD_PED_deploy.prototxt --model mobilenet_ssd/MBSSD_PED.caffemodel  --input videos/MOT20-02.webm --output output/output_01.avi --confidence 0.5" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
       <option name="MODULE_MODE" value="false" />
@@ -229,12 +237,18 @@
         </entry>
       </map>
     </option>
-    <option name="oldMeFiltersMigrated" value="true" />
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="Bild wird mit Kernel geschärft - verbessert detection deutlich&#10;&#10;Bessere Counter Linien" />
     <MESSAGE value="Es wird ein csv mit den counter daten erzeugt" />
     <MESSAGE value="gitignore hinzugefügt und output avi entfernt" />
     <option name="LAST_COMMIT_MESSAGE" value="gitignore hinzugefügt und output avi entfernt" />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints-defaults>
+        <breakpoint type="python-line" />
+      </breakpoints-defaults>
+    </breakpoint-manager>
   </component>
 </project>
