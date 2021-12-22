@@ -4,13 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="08e13f96-c83b-434a-a5cc-f919fffbfe2c" name="Changes" comment="gitignore hinzugefügt und output avi entfernt">
-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/People_counter_Pyimagesearch.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/People_counter_Pyimagesearch.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+    <list default="true" id="08e13f96-c83b-434a-a5cc-f919fffbfe2c" name="Changes" comment="dlibmultitracker bevor ich alles zerstöre">
+      <change afterPath="$PROJECT_DIR$/multitracker_on_crack.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/dlibmultitracker.py" beforeDir="false" afterPath="$PROJECT_DIR$/dlibmultitracker.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/people_counter.py" beforeDir="false" afterPath="$PROJECT_DIR$/people_counter.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -27,7 +25,7 @@
   <component name="Git.Settings">
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
-        <entry key="$PROJECT_DIR$" value="master" />
+        <entry key="$PROJECT_DIR$" value="luis_rebhan" />
       </map>
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -55,15 +53,15 @@
     <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
     <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
     <property name="last_opened_file_path" value="$PROJECT_DIR$" />
-    <property name="settings.editor.selected.configurable" value="editor.preferences.fonts.default" />
+    <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
   </component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
       <recent name="E:\Daten\Code\People_counter_Pyimagesearch" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.dlibmultitracker">
-    <configuration name="csv_test" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+  <component name="RunManager" selected="Python.people_counter">
+    <configuration name="csv_test" type="PythonConfigurationType" factoryName="Python" nameIsGenerated="true">
       <module name="People_counter_Pyimagesearch" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -84,7 +82,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="dlibmultitracker" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="dlibmultitracker" type="PythonConfigurationType" factoryName="Python" nameIsGenerated="true">
       <module name="People_counter_Pyimagesearch" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -105,6 +103,27 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+    <configuration name="multitracker_on_crack" type="PythonConfigurationType" factoryName="Python" nameIsGenerated="true">
+      <module name="People_counter_Pyimagesearch" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/multitracker_on_crack.py" />
+      <option name="PARAMETERS" value="--prototxt mobilenet_ssd/MBSSD_PED_deploy.prototxt --model mobilenet_ssd/MBSSD_PED.caffemodel  --input videos/MOT20-02.webm --output output/output_01.avi --confidence 0.5" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
     <configuration name="people_counter" type="PythonConfigurationType" factoryName="Python">
       <module name="People_counter_Pyimagesearch" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -112,7 +131,7 @@
       <envs>
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
-      <option name="SDK_HOME" value="E:\Daten\Code\People_counter_Pyimagesearch\env\Scripts\python.exe" />
+      <option name="SDK_HOME" value="$PROJECT_DIR$/venv/bin/python" />
       <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
       <option name="IS_MODULE_SDK" value="false" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
@@ -151,12 +170,11 @@
       <item itemvalue="Python.people_counter" />
       <item itemvalue="Python.csv_test" />
       <item itemvalue="Python.dlibmultitracker" />
+      <item itemvalue="Python.multitracker_on_crack" />
       <item itemvalue="Python.write_csv" />
     </list>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.dlibmultitracker" />
-        <item itemvalue="Python.csv_test" />
         <item itemvalue="Python.write_csv" />
       </list>
     </recent_temporary>
@@ -212,7 +230,14 @@
       <option name="project" value="LOCAL" />
       <updated>1639417636381</updated>
     </task>
-    <option name="localTasksCounter" value="7" />
+    <task id="LOCAL-00007" summary="dlibmultitracker bevor ich alles zerstöre">
+      <created>1640025355480</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1640025355481</updated>
+    </task>
+    <option name="localTasksCounter" value="8" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -242,10 +267,23 @@
     <MESSAGE value="Bild wird mit Kernel geschärft - verbessert detection deutlich&#10;&#10;Bessere Counter Linien" />
     <MESSAGE value="Es wird ein csv mit den counter daten erzeugt" />
     <MESSAGE value="gitignore hinzugefügt und output avi entfernt" />
-    <option name="LAST_COMMIT_MESSAGE" value="gitignore hinzugefügt und output avi entfernt" />
+    <MESSAGE value="dlibmultitracker bevor ich alles zerstöre" />
+    <option name="LAST_COMMIT_MESSAGE" value="dlibmultitracker bevor ich alles zerstöre" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" type="python-line">
+          <url>file://$PROJECT_DIR$/dlibmultitracker.py</url>
+          <line>207</line>
+          <option name="timeStamp" value="24" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="python-line">
+          <url>file://$PROJECT_DIR$/multitracker_on_crack.py</url>
+          <line>192</line>
+          <option name="timeStamp" value="29" />
+        </line-breakpoint>
+      </breakpoints>
       <breakpoints-defaults>
         <breakpoint type="python-line" />
       </breakpoints-defaults>

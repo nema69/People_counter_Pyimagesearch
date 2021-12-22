@@ -11,6 +11,14 @@ import imutils
 import time
 import dlib
 import cv2
+import concurrent.futures
+from functools import partial
+
+def update_tracker_and_get_pos(rgb_frame):
+    tracker.update(rgb_frame)
+    position = tracker.get_position()
+    return position
+
 
 # construct the argument parse and parse the arguments
 ap = argparse.ArgumentParser()
@@ -174,24 +182,33 @@ while True:
                 # otherwise, we should utilize our object *trackers* rather than
                 # object *detectors* to obtain a higher frame processing throughput
     else:
-        # loop over the trackers
-        for tracker in trackers:
-            # set the status of our system to be 'tracking' rather
-            # than 'waiting' or 'detecting'
-            status = "Tracking"
+        with concurrent.futures.ProcessPoolExecutor() as executor:
 
-            # update the tracker and grab the updated position
-            tracker.update(rgb)
-            pos = tracker.get_position()
+            # loop over the trackers
 
-            # unpack the position object
-            startX = int(pos.left())
-            startY = int(pos.top())
-            endX = int(pos.right())
-            endY = int(pos.bottom())
+            results = executor.map(partial(update_tracker_and_get_pos, rbg_frame = rgb), trackers)
 
-            # add the bounding box coordinates to the rectangles list
-            rects.append((startX, startY, endX, endY))
+                #[executor.submit(update_tracker_and_get_pos, rgb) for _ in range(len(trackers))]
+
+            #for f in concurrent.futures.as_completed(results):
+
+                pos = f.result()
+                # set the status of our system to be 'tracking' rather
+                # than 'waiting' or 'detecting'
+                status = "Tracking"
+
+                # update the tracker and grab the updated position
+                #tracker.update(rgb)
+                #pos = tracker.get_position()
+
+                # unpack the position object
+                startX = int(pos.left())
+                startY = int(pos.top())
+                endX = int(pos.right())
+                endY = int(pos.bottom())
+
+                # add the bounding box coordinates to the rectangles list
+                rects.append((startX, startY, endX, endY))
 
     # draw 2 horizontal lines in the center of the frame -- once an
     # object crosses this line we will determine whether they were

@@ -8,6 +8,7 @@ import imutils
 import dlib
 import cv2
 from os import getpid
+import concurrent.futures
 
 
 def start_tracker(box, label, rgb, inputQueue, outputQueue):
@@ -150,7 +151,6 @@ while True:
     # resize the frame for faster processing and then convert the
     # frame from BGR to RGB ordering (dlib needs RGB ordering)
     frame = preprocess_frame(frame, 500)
-    rgb = frame
     # if we are supposed to be writing a video to disk, initialize
     # the writer
     if args["output"] is not None and writer is None:
@@ -160,37 +160,16 @@ while True:
 
     # if our list of queues is empty then we know we have yet to
     # create our first object tracker
-    if len(inputQueues) == 0 or frames_since_detection % skip_frames == 0 or not multiprocessing.active_children():
+    if frames_since_detection % skip_frames == 0:
         print('if')
-        detections = run_detection_on_frame(rgb)
+        detections = run_detection_on_frame(frame)
         print('running detection...')
         frames_since_detection = 1
 
-        #bb, label = filter_detections(detections, args["confidence"], CLASSES, "person")
-        # loop over the detections
-
         list_bounding_boxes, list_labels = build_list_of_bounding_boxes(detections)
-
-        p = Pool()
-
-        processes = []
 
         for i in range(len(list_bounding_boxes)):
 
-            # create two brand new input and output queues,
-            # respectively
-            iq = multiprocessing.Queue()
-            oq = multiprocessing.Queue()
-            inputQueues.append(iq)
-            outputQueues.append(oq)
-
-            # spawn a daemon process for a new object tracker
-            p = multiprocessing.Process(
-                target=start_tracker,
-                args=(list_bounding_boxes[i], list_labels[i], rgb, iq, oq))
-            #p.daemon = True
-            p.start()
-            processes.append(p)
             # grab the corresponding class label for the detection
             # and draw the bounding box
             (startX, startY, endX, endY) = list_bounding_boxes[i]
@@ -198,9 +177,8 @@ while True:
                           (0, 255, 0), 2)
             cv2.putText(frame, list_labels[i], (startX, startY - 15),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 255, 0), 2)
-            print(multiprocessing.active_children)
-        #for process in processes:
-        #    process.join()
+
+        #cv2.imshow("Frame", frame)
 
     # otherwise, we've already performed detection so let's track
     # multiple objects
@@ -209,10 +187,6 @@ while True:
         # loop over each of our input ques and add the input RGB
         # frame to it, enabling us to update each of the respective
         # object trackers running in separate processes
-        if not multiprocessing.active_children():
-            frames_since_detection = frames_since_detection + 1
-            print('No active Trackers, exiting tracking loop...')
-            continue
         for iq in inputQueues:
             iq.put(rgb)
         # loop over each of the output queues
