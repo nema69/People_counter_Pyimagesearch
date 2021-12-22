@@ -12,6 +12,63 @@ import time
 import dlib
 import cv2
 
+
+def preprocess_frame(input_frame, desired_width):
+
+    resized_frame = imutils.resize(input_frame, width=desired_width)
+
+    kernel = np.array([[-1, -1, -1],
+                       [-1, 9, -1],
+                       [-1, -1, -1]])
+
+    sharpened_frame = cv2.filter2D(resized_frame, -1, kernel)
+
+    output_frame = cv2.cvtColor(sharpened_frame, cv2.COLOR_BGR2RGB)
+
+    return output_frame
+
+
+def run_detection_on_frame(input_frame):
+    # grab the frame dimensions and convert the frame to a blob
+    (h, w) = input_frame.shape[:2]
+    blob = cv2.dnn.blobFromImage(input_frame, 0.007843, (w, h), 127.5)
+    # pass the blob through the network and obtain the detections
+    # and predictions
+    net.setInput(blob)
+    output_detections = net.forward()
+
+    return output_detections
+
+
+def build_list_of_bounding_boxes(input_detections):
+
+    out_list_bounding_boxes = []
+    out_list_labels = []
+    for i in np.arange(0, input_detections.shape[2]):
+        # extract the confidence (i.e., probability) associated
+        # with the prediction
+        confidence = input_detections[0, 0, i, 2]
+        # filter out weak detections by requiring a minimum
+        # confidence
+        if confidence > args["confidence"]:
+            # extract the index of the class label from the
+            # detections list
+            idx = int(detections[0, 0, i, 1])
+            label = CLASSES[idx]
+            # if the class label is not a person, ignore it
+            if CLASSES[idx] != "person":
+                continue
+
+            # compute the (x, y)-coordinates of the bounding box
+            # for the object
+            (h, w) = frame.shape[:2]
+            box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
+            (startX, startY, endX, endY) = box.astype("int")
+            bb = (startX, startY, endX, endY)
+            out_list_bounding_boxes.append(bb)
+            out_list_labels.append(label)
+
+    return out_list_bounding_boxes, out_list_labels
 # construct the argument parse and parse the arguments
 ap = argparse.ArgumentParser()
 ap.add_argument("-p", "--prototxt", required=True,
@@ -100,13 +157,8 @@ while True:
     # resize the frame to have a maximum width of 500 pixels (the
     # less data we have, the faster we can process it), then convert
     # the frame from BGR to RGB for dlib
-    frame = imutils.resize(frame, width=500)
-    kernel = np.array([[-1, -1, -1],
-                       [-1, 9, -1],
-                       [-1, -1, -1]])
-    frame = cv2.filter2D(frame, -1, kernel)
+    frame = preprocess_frame(frame, 500)
 
-    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
     # if the frame dimensions are empty, set them
     if W is None or H is None:
@@ -132,47 +184,26 @@ while True:
         status = "Detecting"
         trackers = []
 
-        # convert the frame to a blob and pass the blob through the
-        # network and obtain the detections
-        blob = cv2.dnn.blobFromImage(frame, 0.007843, (W, H), 127.5)
-        net.setInput(blob)
-        detections = net.forward()
+        detections = run_detection_on_frame(frame)
 
-        # loop over the detections
-        for i in np.arange(0, detections.shape[2]):
-            # extract the confidence (i.e., probability) associated
-            # with the prediction
-            confidence = detections[0, 0, i, 2]  # [0, 0, i, 2]
+        list_of_bounding_boxes, list_of_labels = build_list_of_bounding_boxes(detections)
 
-            # filter out weak detections by requiring a minimum
-            # confidence
-            if confidence > args["confidence"]:
-                # extract the index of the class label from the
-                # detections list
-                idx = int(detections[0, 0, i, 1])
+        for bounding_box in list_of_bounding_boxes:
 
-                # if the class label is not a person, ignore it
-                if CLASSES[idx] != "person":
-                    continue
+            (startX, startY, endX, endY) = bounding_box
+            # construct a dlib rectangle object from the bounding
+            # box coordinates and then start the dlib correlation
+            # tracker
+            tracker = dlib.correlation_tracker()
+            rect = dlib.rectangle(startX, startY, endX, endY)
+            tracker.start_track(frame, rect)
 
-                # compute the (x, y)-coordinates of the bounding box
-                # for the object
-                box = detections[0, 0, i, 3:7] * np.array([W, H, W, H])
-                (startX, startY, endX, endY) = box.astype("int")
+            # add the tracker to our list of trackers so we can
+            # utilize it during skip frames
+            trackers.append(tracker)
 
-                # construct a dlib rectangle object from the bounding
-                # box coordinates and then start the dlib correlation
-                # tracker
-                tracker = dlib.correlation_tracker()
-                rect = dlib.rectangle(startX, startY, endX, endY)
-                tracker.start_track(rgb, rect)
-
-                # add the tracker to our list of trackers so we can
-                # utilize it during skip frames
-                trackers.append(tracker)
-
-                # otherwise, we should utilize our object *trackers* rather than
-                # object *detectors* to obtain a higher frame processing throughput
+            # otherwise, we should utilize our object *trackers* rather than
+            # object *detectors* to obtain a higher frame processing throughput
     else:
         # loop over the trackers
         for tracker in trackers:
@@ -181,7 +212,7 @@ while True:
             status = "Tracking"
 
             # update the tracker and grab the updated position
-            tracker.update(rgb)
+            tracker.update(frame)
             pos = tracker.get_position()
 
             # unpack the position object
