@@ -4,10 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="08e13f96-c83b-434a-a5cc-f919fffbfe2c" name="Changes" comment="update">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/people_counter.py" beforeDir="false" afterPath="$PROJECT_DIR$/people_counter.py" afterDir="false" />
-    </list>
+    <list default="true" id="08e13f96-c83b-434a-a5cc-f919fffbfe2c" name="Changes" comment="timers" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -144,9 +141,9 @@
       <method v="2" />
     </configuration>
     <list>
-      <item itemvalue="Python.people_counter" />
       <item itemvalue="Python.csv_test" />
       <item itemvalue="Python.dlibmultitracker" />
+      <item itemvalue="Python.people_counter" />
       <item itemvalue="Python.write_csv" />
     </list>
     <recent_temporary>
@@ -215,7 +212,14 @@
       <option name="project" value="LOCAL" />
       <updated>1640163429077</updated>
     </task>
-    <option name="localTasksCounter" value="8" />
+    <task id="LOCAL-00008" summary="timers">
+      <created>1640179214108</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1640179214108</updated>
+    </task>
+    <option name="localTasksCounter" value="9" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -246,7 +250,8 @@
     <MESSAGE value="Es wird ein csv mit den counter daten erzeugt" />
     <MESSAGE value="gitignore hinzugefügt und output avi entfernt" />
     <MESSAGE value="update" />
-    <option name="LAST_COMMIT_MESSAGE" value="update" />
+    <MESSAGE value="timers" />
+    <option name="LAST_COMMIT_MESSAGE" value="timers" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
