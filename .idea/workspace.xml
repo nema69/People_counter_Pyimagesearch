@@ -141,9 +141,9 @@
       <method v="2" />
     </configuration>
     <list>
+      <item itemvalue="Python.people_counter" />
       <item itemvalue="Python.csv_test" />
       <item itemvalue="Python.dlibmultitracker" />
-      <item itemvalue="Python.people_counter" />
       <item itemvalue="Python.write_csv" />
     </list>
     <recent_temporary>
