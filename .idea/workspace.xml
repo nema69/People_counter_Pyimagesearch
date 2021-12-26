@@ -4,15 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="08e13f96-c83b-434a-a5cc-f919fffbfe2c" name="Changes" comment="gitignore hinzugefügt und output avi entfernt">
-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/People_counter_Pyimagesearch.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/People_counter_Pyimagesearch.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dlibmultitracker.py" beforeDir="false" afterPath="$PROJECT_DIR$/dlibmultitracker.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/people_counter.py" beforeDir="false" afterPath="$PROJECT_DIR$/people_counter.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
-    </list>
+    <list default="true" id="08e13f96-c83b-434a-a5cc-f919fffbfe2c" name="Changes" comment="timers" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -213,7 +205,21 @@
       <option name="project" value="LOCAL" />
       <updated>1639417636381</updated>
     </task>
-    <option name="localTasksCounter" value="7" />
+    <task id="LOCAL-00007" summary="update">
+      <created>1640163429077</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1640163429077</updated>
+    </task>
+    <task id="LOCAL-00008" summary="timers">
+      <created>1640179214108</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1640179214108</updated>
+    </task>
+    <option name="localTasksCounter" value="9" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -243,7 +249,9 @@
     <MESSAGE value="Bild wird mit Kernel geschärft - verbessert detection deutlich&#10;&#10;Bessere Counter Linien" />
     <MESSAGE value="Es wird ein csv mit den counter daten erzeugt" />
     <MESSAGE value="gitignore hinzugefügt und output avi entfernt" />
-    <option name="LAST_COMMIT_MESSAGE" value="gitignore hinzugefügt und output avi entfernt" />
+    <MESSAGE value="update" />
+    <MESSAGE value="timers" />
+    <option name="LAST_COMMIT_MESSAGE" value="timers" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

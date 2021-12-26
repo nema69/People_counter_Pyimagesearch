@@ -144,6 +144,9 @@ fps = FPS().start()
 
 # loop over frames from the video stream
 while True:
+    start_time_frame = time.time()
+
+
     # grab the next frame and handle if we are reading from either
     # VideoCapture or VideoStream
     frame = vs.read()
@@ -157,9 +160,10 @@ while True:
     # resize the frame to have a maximum width of 500 pixels (the
     # less data we have, the faster we can process it), then convert
     # the frame from BGR to RGB for dlib
+    start_time_preprocess = time.time()
     frame = preprocess_frame(frame, 500)
-
-
+    end_time_preprocess = time.time()
+    print('preprocess_frame: {}'.format(end_time_preprocess - start_time_preprocess))
     # if the frame dimensions are empty, set them
     if W is None or H is None:
         (H, W) = frame.shape[:2]
@@ -180,6 +184,7 @@ while True:
     # check to see if we should run a more computationally expensive
     # object detection method to aid our tracker
     if totalFrames % args["skip_frames"] == 0:
+        start_time_detection = time.time()
         # set the status and initialize our new set of object trackers
         status = "Detecting"
         trackers = []
@@ -204,14 +209,18 @@ while True:
 
             # otherwise, we should utilize our object *trackers* rather than
             # object *detectors* to obtain a higher frame processing throughput
+        end_time_detection = time.time()
+        print('updating detection: {}'.format(end_time_detection - start_time_detection))
     else:
         # loop over the trackers
+        start_time_trackers = time.time()
         for tracker in trackers:
             # set the status of our system to be 'tracking' rather
             # than 'waiting' or 'detecting'
             status = "Tracking"
 
             # update the tracker and grab the updated position
+
             tracker.update(frame)
             pos = tracker.get_position()
 
@@ -223,7 +232,8 @@ while True:
 
             # add the bounding box coordinates to the rectangles list
             rects.append((startX, startY, endX, endY))
-
+        end_time_trackers = time.time()
+        print('updating trackers: {}'.format(end_time_trackers - start_time_trackers))
     # draw 2 horizontal lines in the center of the frame -- once an
     # object crosses this line we will determine whether they were
     # moving 'up' or 'down'
@@ -232,8 +242,10 @@ while True:
 
     # use the centroid tracker to associate the (1) old object
     # centroids with (2) the newly computed object centroids
+    start_time_ct_update = time.time()
     objects = ct.update(rects)
-
+    end_time_ct_update = time.time()
+    print('updating ct: {}'.format(end_time_ct_update - start_time_ct_update))
     # loop over the tracked objects
     for (objectID, centroid) in objects.items():
         # check to see if a trackable object exists for the current
@@ -331,7 +343,8 @@ while True:
     # then update the FPS counter
     totalFrames += 1
     fps.update()
-
+    end_time_frame = time.time()
+    print('frame_time: {}'.format(end_time_frame - start_time_frame))
 # stop the timer and display FPS information
 fps.stop()
 print("[INFO] elapsed time: {:.2f}".format(fps.elapsed()))
