@@ -1,0 +1,1 @@
+-p mobilenet_ssd/MBSSD_PED_deploy.prototxt -m mobilenet_ssd/MBSSD_PED.caffemodel -i videos/MOT20-02.webm
