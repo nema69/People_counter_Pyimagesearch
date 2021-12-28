@@ -69,6 +69,35 @@ def build_list_of_bounding_boxes(input_detections):
             out_list_labels.append(label)
 
     return out_list_bounding_boxes, out_list_labels
+
+
+def update_trackers_dlib(tracker_list, current_frame):
+    rects_ = []
+    for tracker_ in tracker_list:
+
+        tracker_.update(current_frame)
+        pos = tracker_.get_position()
+
+        # unpack the position object
+        startX_ = int(pos.left())
+        startY_ = int(pos.top())
+        endX_ = int(pos.right())
+        endY_ = int(pos.bottom())
+
+        # add the bounding box coordinates to the rectangles list
+        rects_.append((startX_, startY_, endX_, endY_))
+    return rects_
+
+def update_trackers_cv2(tracker_list, current_frame):
+    rects_ = []
+    for tracker_ in tracker_list:
+
+        rect_cv2 = tracker_.update(current_frame)
+        left, top, right, bottom = rect_cv2[1]
+        #dlib_rect = dlib.rectangle(int(left), int(top), int(right), int(bottom))
+        # add the bounding box coordinates to the rectangles list
+        rects_.append((left, top, right, bottom))
+    return rects_
 # construct the argument parse and parse the arguments
 ap = argparse.ArgumentParser()
 ap.add_argument("-p", "--prototxt", required=True,
@@ -199,9 +228,11 @@ while True:
             # construct a dlib rectangle object from the bounding
             # box coordinates and then start the dlib correlation
             # tracker
-            tracker = dlib.correlation_tracker()
-            rect = dlib.rectangle(startX, startY, endX, endY)
-            tracker.start_track(frame, rect)
+            tracker = cv2.legacy.TrackerMOSSE_create()
+            tracker.init(frame, bounding_box)
+            #tracker = dlib.correlation_tracker()
+            #rect = dlib.rectangle(startX, startY, endX, endY)
+            #tracker.start_track(frame, rect)
 
             # add the tracker to our list of trackers so we can
             # utilize it during skip frames
@@ -214,24 +245,7 @@ while True:
     else:
         # loop over the trackers
         start_time_trackers = time.time()
-        for tracker in trackers:
-            # set the status of our system to be 'tracking' rather
-            # than 'waiting' or 'detecting'
-            status = "Tracking"
-
-            # update the tracker and grab the updated position
-
-            tracker.update(frame)
-            pos = tracker.get_position()
-
-            # unpack the position object
-            startX = int(pos.left())
-            startY = int(pos.top())
-            endX = int(pos.right())
-            endY = int(pos.bottom())
-
-            # add the bounding box coordinates to the rectangles list
-            rects.append((startX, startY, endX, endY))
+        rects = update_trackers_cv2(trackers, frame)
         end_time_trackers = time.time()
         print('updating trackers: {}'.format(end_time_trackers - start_time_trackers))
     # draw 2 horizontal lines in the center of the frame -- once an
