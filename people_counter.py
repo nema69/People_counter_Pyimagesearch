@@ -13,6 +13,20 @@ import dlib
 import cv2
 
 
+def preprocess_frame_detection(input_frame):
+    nh, nw = 224, 224
+    h, w, _ = input_frame.shape
+    if h < w:
+        off = (w - h) / 2
+        input_frame = input_frame[:, off:off + h]
+    else:
+        off = (h - w) / 2
+        input_frame = input_frame[off:off + h, :]
+    frame_resized = imutils.resize(input_frame, [nh, nw])
+    output_frame = cv2.cvtColor(frame_resized, cv2.COLOR_BGR2RGB)
+
+    return output_frame
+
 def preprocess_frame(input_frame, desired_width):
 
     resized_frame = imutils.resize(input_frame, width=desired_width)
@@ -30,8 +44,9 @@ def preprocess_frame(input_frame, desired_width):
 
 def run_detection_on_frame(input_frame):
     # grab the frame dimensions and convert the frame to a blob
+    input_frame = (input_frame)
     (h, w) = input_frame.shape[:2]
-    blob = cv2.dnn.blobFromImage(input_frame, 0.007843, (w, h), 127.5)
+    blob = cv2.dnn.blobFromImage(input_frame, 0.007843, (w, h), (127, 127, 127))
     # pass the blob through the network and obtain the detections
     # and predictions
     net.setInput(blob)
@@ -88,7 +103,9 @@ def update_trackers_dlib(tracker_list, current_frame):
         rects_.append((startX_, startY_, endX_, endY_))
     return rects_
 
+
 def update_trackers_cv2(tracker_list, current_frame):
+
     rects_ = []
     for tracker_ in tracker_list:
 
@@ -98,6 +115,35 @@ def update_trackers_cv2(tracker_list, current_frame):
         # add the bounding box coordinates to the rectangles list
         rects_.append((left, top, right, bottom))
     return rects_
+
+
+def initialize_cv2_tracker(input_frame, input_bb):
+    tracker = cv2.legacy.TrackerMOSSE_create()
+    tracker.init(input_frame, input_bb)
+    return tracker
+
+
+def initialize_dlib_tracker(input_frame, input_bb):
+     tracker = dlib.correlation_tracker()
+     (startX, startY, endX, endY) = input_bb
+     rect = dlib.rectangle(startX, startY, endX, endY)
+     tracker.start_track(input_frame, rect)
+     return tracker
+
+
+def draw_counting_lines(input_frame, orientation, distance, colour):
+    (h, w) = frame.shape[:2]
+    half_dist = distance//2
+    if orientation:
+
+        cv2.line(input_frame, (0, h // 2 + half_dist), (w, h // 2 + half_dist), colour, 2)
+        cv2.line(input_frame, (0, h // 2 - half_dist), (w, h // 2 - half_dist), colour, 2)
+
+    else:
+        cv2.line(input_frame, (w // 2 + half_dist, 0), (w // 2 + half_dist, h), colour, 2)
+        cv2.line(input_frame, (w // 2 - half_dist, 0), (w // 2 - half_dist, h), colour, 2)
+
+
 # construct the argument parse and parse the arguments
 ap = argparse.ArgumentParser()
 ap.add_argument("-p", "--prototxt", required=True,
@@ -158,7 +204,7 @@ H = None
 # instantiate our centroid tracker, then initialize a list to store
 # each of our dlib correlation trackers, followed by a dictionary to
 # map each unique object ID to a TrackableObject
-ct = CentroidTracker(maxDisappeared=40) # , maxDistance=50
+ct = CentroidTracker(maxDisappeared=40)  # , maxDistance=50
 trackers = []
 trackableObjects = {}
 
@@ -175,7 +221,6 @@ fps = FPS().start()
 while True:
     start_time_frame = time.time()
 
-
     # grab the next frame and handle if we are reading from either
     # VideoCapture or VideoStream
     frame = vs.read()
@@ -189,10 +234,11 @@ while True:
     # resize the frame to have a maximum width of 500 pixels (the
     # less data we have, the faster we can process it), then convert
     # the frame from BGR to RGB for dlib
-    start_time_preprocess = time.time()
-    frame = preprocess_frame(frame, 500)
-    end_time_preprocess = time.time()
-    print('preprocess_frame: {}'.format(end_time_preprocess - start_time_preprocess))
+
+    # frame = cv2.rotate(frame, cv2.cv2.ROTATE_90_CLOCKWISE)
+    # frame = preprocess_frame(frame, 500)
+    frame = imutils.resize(frame, height=500)
+
     # if the frame dimensions are empty, set them
     if W is None or H is None:
         (H, W) = frame.shape[:2]
@@ -209,7 +255,8 @@ while True:
     # (2) the correlation trackers
     status = "Waiting"
     rects = []
-
+    print("Height: {}".format(H))
+    print("Width: {}".format(W))
     # check to see if we should run a more computationally expensive
     # object detection method to aid our tracker
     if totalFrames % args["skip_frames"] == 0:
@@ -224,15 +271,12 @@ while True:
 
         for bounding_box in list_of_bounding_boxes:
 
-            (startX, startY, endX, endY) = bounding_box
+            # (startX, startY, endX, endY) = bounding_box
             # construct a dlib rectangle object from the bounding
             # box coordinates and then start the dlib correlation
             # tracker
-            tracker = cv2.legacy.TrackerMOSSE_create()
-            tracker.init(frame, bounding_box)
-            #tracker = dlib.correlation_tracker()
-            #rect = dlib.rectangle(startX, startY, endX, endY)
-            #tracker.start_track(frame, rect)
+            tracker = initialize_cv2_tracker(frame, bounding_box)
+            # tracker = initialize_dlib_tracker(frame, bounding_box)
 
             # add the tracker to our list of trackers so we can
             # utilize it during skip frames
@@ -242,24 +286,26 @@ while True:
             # object *detectors* to obtain a higher frame processing throughput
         end_time_detection = time.time()
         print('updating detection: {}'.format(end_time_detection - start_time_detection))
+
     else:
         # loop over the trackers
         start_time_trackers = time.time()
         rects = update_trackers_cv2(trackers, frame)
+        # rects = update_trackers_dlib(trackers, frame)
         end_time_trackers = time.time()
         print('updating trackers: {}'.format(end_time_trackers - start_time_trackers))
     # draw 2 horizontal lines in the center of the frame -- once an
     # object crosses this line we will determine whether they were
     # moving 'up' or 'down'
-    cv2.line(frame, (0, H // 5), (W, H // 5), (0, 255, 255), 2)
-    cv2.line(frame, (0, H // 3 * 2), (W, H // 3 * 2), (0, 255, 255), 2)
+    # cv2.line(frame, (0, H // 5), (W, H // 5), (0, 255, 255), 2)
+    # cv2.line(frame, (0, H // 3 * 2), (W, H // 3 * 2), (0, 255, 255), 2)
+    draw_counting_lines(frame, 0, 20, (255, 255, 255))
 
     # use the centroid tracker to associate the (1) old object
     # centroids with (2) the newly computed object centroids
-    start_time_ct_update = time.time()
+
     objects = ct.update(rects)
-    end_time_ct_update = time.time()
-    print('updating ct: {}'.format(end_time_ct_update - start_time_ct_update))
+
     # loop over the tracked objects
     for (objectID, centroid) in objects.items():
         # check to see if a trackable object exists for the current
