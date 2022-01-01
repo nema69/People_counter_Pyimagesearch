@@ -261,10 +261,8 @@ while True:
     # resize the frame to have a maximum width of 500 pixels (the
     # less data we have, the faster we can process it), then convert
     # the frame from BGR to RGB for dlib
-
-    # frame = cv2.rotate(frame, cv2.cv2.ROTATE_90_CLOCKWISE)
-    frame = preprocess_frame(frame, 500)
-    #frame = imutils.resize(frame, width=500)
+    frame_detection = preprocess_frame(frame, 500)
+    # frame_display =
 
     # if the frame dimensions are empty, set them
     if W is None or H is None:
@@ -282,8 +280,6 @@ while True:
     # (2) the correlation trackers
     status = "Waiting"
     rects = []
-    #print("Height: {}".format(H))
-    #print("Width: {}".format(W))
     # check to see if we should run a more computationally expensive
     # object detection method to aid our tracker
     if totalFrames % args["skip_frames"] == 0:
@@ -292,7 +288,7 @@ while True:
         status = "Detecting"
         trackers = []
 
-        detections = run_detection_on_frame(frame)
+        detections = run_detection_on_frame(frame_detection)
 
         list_of_bounding_boxes, list_of_labels = build_list_of_bounding_boxes(detections)
 
