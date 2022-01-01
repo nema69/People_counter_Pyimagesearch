@@ -10,7 +10,7 @@ def create_csv_file():
     current_time = now.strftime("%Y_%m_%d_%H-%M-%S")
 
     # Building the complete filename
-    csv_filename = "{}_output.csv".format(current_time)
+    csv_filename = "csv/{}_output.csv".format(current_time)
 
     # Open File at specified location
 

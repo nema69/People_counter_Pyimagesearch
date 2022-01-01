@@ -11,6 +11,7 @@ import imutils
 import time
 import dlib
 import cv2
+from functions import two_point_box_2_width_height_box
 
 
 def preprocess_frame_detection(input_frame):
@@ -123,14 +124,15 @@ def update_trackers_cv2(tracker_list, current_frame):
 
 def initialize_cv2_tracker(input_frame, input_bb):
     # Transform BB from left,bot,right,top to x,y,w,h
-    left = input_bb[0]
-    bot = input_bb[1]
-    right = input_bb[2]
-    top = input_bb[3]
-    new_bb = (left, bot, right - left, top - bot)
-    tracker = cv2.TrackerKCF_create()
-    tracker.init(input_frame, new_bb)
-    return tracker
+    new_bb = two_point_box_2_width_height_box(input_bb)
+
+    # Create new tracker
+    tracker_ = cv2.TrackerKCF_create()
+
+    # Init new tracker
+    tracker_.init(input_frame, new_bb)
+
+    return tracker_
 
 
 def initialize_dlib_tracker(input_frame, input_bb):
