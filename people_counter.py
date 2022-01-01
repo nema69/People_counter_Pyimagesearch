@@ -147,7 +147,7 @@ def initialize_dlib_tracker(input_frame, input_bb):
 def draw_counting_lines(input_frame, orientation, distance, colour):
     (h, w) = frame.shape[:2]
     half_dist = distance//2
-    if orientation:
+    if not orientation:
 
         cv2.line(input_frame, (0, h // 2 + half_dist), (w, h // 2 + half_dist), colour, 2)
         cv2.line(input_frame, (0, h // 2 - half_dist), (w, h // 2 - half_dist), colour, 2)
@@ -167,9 +167,123 @@ def draw_box_from_bb(in_frame, bb):
         return in_frame
 
 
+def determine_direction(centroid, orientation):
+
+    # 0 = Vertical
+    if orientation == 0:
+        # c[1] y component of location history
+        y = [c[1] for c in to.centroids]
+        # negative = up , positive = down
+        direction_value = centroid[1] - np.mean(y)
+        return direction_value
+    else:
+        # c[1] y component of location history
+        y = [c[0] for c in to.centroids]
+        # negative = up , positive = down
+        direction_value = centroid[0] - np.mean(y)
+        return direction_value
 
 
-# construct the argument parse and parse the arguments
+def check_if_count(centroid, direction, orientation, totalUp, totalDown):
+
+    if orientation == 0:
+        if direction < 0 and centroid[1] < H // 3 and person_dict[str(objectID)] > frame_counts_up:
+            totalUp += 1
+            to.counted = True
+
+        # if the direction is positive (indicating the object
+        # is moving down) AND the centroid is below the
+        # center line, count the object
+        elif direction > 0 and centroid[1] > H // 3 * 2:
+            if person_dict[str(objectID)] > frame_counts:
+                totalDown += 1
+                to.counted = True
+        return totalUp, totalDown
+
+    else:
+        if direction < 0 and centroid[0] < W // 3 and person_dict[str(objectID)] > frame_counts_up:
+            totalUp += 1
+            to.counted = True
+
+        # if the direction is positive (indicating the object
+        # is moving down) AND the centroid is below the
+        # center line, count the object
+        elif direction > 0 and centroid[0] > W // 3 * 2:
+            if person_dict[str(objectID)] > frame_counts:
+                totalDown += 1
+                to.counted = True
+        return totalUp, totalDown
+
+
+def count(objects, orientation,current_count):
+
+    for (objectID, centroid) in objects.items():
+        # check to see if a trackable object exists for the current
+        # object ID
+        to = trackableObjects.get(objectID, None)
+
+        # if there is no existing trackable object, create one
+        if to is None:
+            to = TrackableObject(objectID, centroid)
+
+        # otherwise, there is a trackable object so we can utilize it
+        # to determine direction
+        else:
+            # the difference between the y-coordinate of the *current*
+            # centroid and the mean of *previous* centroids will tell
+            # us in which direction the object is moving (negative for
+            # 'up' and positive for 'down')
+            # y = [c[1] for c in to.centroids]
+            # direction = centroid[1] - np.mean(y)
+            # 0 = Vertical
+            if orientation == 0:
+                # c[1] y component of location history
+                y = [c[1] for c in to.centroids]
+                # negative = up , positive = down
+                direction = centroid[1] - np.mean(y)
+
+            else:
+                # c[1] y component of location history
+                y = [c[0] for c in to.centroids]
+                # negative = up , positive = down
+                direction = centroid[0] - np.mean(y)
+
+        to.centroids.append(centroid)
+
+        # check to see if the object has been counted or not
+        if not to.counted:
+            if orientation == 0:
+                if direction < 0 and centroid[1] < H // 3 and person_dict[str(objectID)] > frame_counts_up:
+                    current_count[0] += 1
+                    to.counted = True
+
+                # if the direction is positive (indicating the object
+                # is moving down) AND the centroid is below the
+                # center line, count the object
+                elif direction > 0 and centroid[1] > H // 3 * 2:
+                    if person_dict[str(objectID)] > frame_counts:
+                        current_count[1] += 1
+                        to.counted = True
+
+            else:
+                if direction < 0 and centroid[0] < W // 3 and person_dict[str(objectID)] > frame_counts_up:
+                    current_count[0] += 1
+                    to.counted = True
+
+                # if the direction is positive (indicating the object
+                # is moving down) AND the centroid is below the
+                # center line, count the object
+                elif direction > 0 and centroid[0] > W // 3 * 2:
+                    if person_dict[str(objectID)] > frame_counts:
+                        current_count[1] += 1
+                        to.counted = True
+
+    trackableObjects[objectID] = to
+    return current_count
+
+
+
+    # construct the argument parse and parse the arguments
 ap = argparse.ArgumentParser()
 ap.add_argument("-p", "--prototxt", required=True,
                 help="path to Caffe 'deploy' prototxt file")
@@ -189,6 +303,12 @@ args = vars(ap.parse_args())
 person_dict = dict()
 frame_counts = 110
 frame_counts_up = 60
+Vertical = 0
+Horizontal = 1
+Counting_direction = ["Vertical", "Horizontal"]
+orientation = Horizontal
+TotalUp = 0
+TotalDown = 0
 
 # Setup csv file
 current_file = create_csv_file()
@@ -262,7 +382,7 @@ while True:
     # less data we have, the faster we can process it), then convert
     # the frame from BGR to RGB for dlib
     frame_detection = preprocess_frame(frame, 500)
-    # frame_display =
+    frame = imutils.resize(frame, height=600)
 
     # if the frame dimensions are empty, set them
     if W is None or H is None:
@@ -328,7 +448,7 @@ while True:
     # moving 'up' or 'down'
     # cv2.line(frame, (0, H // 5), (W, H // 5), (0, 255, 255), 2)
     # cv2.line(frame, (0, H // 3 * 2), (W, H // 3 * 2), (0, 255, 255), 2)
-    draw_counting_lines(frame, 0, 20, (255, 255, 255))
+    draw_counting_lines(frame, orientation, 100, (255, 255, 255))
 
     # use the centroid tracker to associate the (1) old object
     # centroids with (2) the newly computed object centroids
@@ -352,8 +472,9 @@ while True:
             # centroid and the mean of *previous* centroids will tell
             # us in which direction the object is moving (negative for
             # 'up' and positive for 'down')
-            y = [c[1] for c in to.centroids]
-            direction = centroid[1] - np.mean(y)
+            # y = [c[1] for c in to.centroids]
+            # direction = centroid[1] - np.mean(y)
+            direction = centroid.direction_horizontal
             to.centroids.append(centroid)
 
             # check to see if the object has been counted or not
@@ -361,18 +482,18 @@ while True:
                 # if the direction is negative (indicating the object
                 # is moving up) AND the centroid is above the center
                 # line, count the object
-                if direction < 0 and centroid[1] < H // 3 and person_dict[str(objectID)] > frame_counts_up:
-                    totalUp += 1
-                    to.counted = True
-
-                # if the direction is positive (indicating the object
-                # is moving down) AND the centroid is below the
-                # center line, count the object
-                elif direction > 0 and centroid[1] > H // 3 * 2:
-                    if person_dict[str(objectID)] > frame_counts:
-                        totalDown += 1
-                        to.counted = True
-
+                # if direction < 0 and centroid[1] < H // 3 and person_dict[str(objectID)] > frame_counts_up:
+                #     totalUp += 1
+                #     to.counted = True
+                #
+                # # if the direction is positive (indicating the object
+                # # is moving down) AND the centroid is below the
+                # # center line, count the object
+                # elif direction > 0 and centroid[1] > H // 3 * 2:
+                #     if person_dict[str(objectID)] > frame_counts:
+                #         totalDown += 1
+                #         to.counted = True
+                totalUp, totalDown = check_if_count(centroid, direction, orientation, TotalUp, TotalDown)
         # store the trackable object in our dictionary
         trackableObjects[objectID] = to
 
