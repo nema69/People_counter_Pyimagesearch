@@ -12,6 +12,7 @@ import time
 import dlib
 import cv2
 from functions import two_point_box_2_width_height_box
+from functions import width_height_box_2_two_point_box
 
 
 def preprocess_frame_detection(input_frame):
@@ -109,16 +110,16 @@ def update_trackers_dlib(tracker_list, current_frame):
 def update_trackers_cv2(tracker_list, current_frame):
 
     rects_ = []
+
     for tracker_ in tracker_list:
 
+        # get width height rect from tracker
         success, rect_cv2 = tracker_.update(current_frame)
-        (left, bottom, w, h) = rect_cv2
-        top = bottom + h
-        right = left + w
-        #dlib_rect = dlib.rectangle(int(left), int(top), int(right), int(bottom))
+        # transform into 2 point rect
+        two_point_rect = width_height_box_2_two_point_box(rect_cv2)
         # add the bounding box coordinates to the rectangles list
-        rects_.append((int(left), int(top), int(right), int(bottom)))
-        #rects_.append(dlib_rect)
+        rects_.append(two_point_rect)
+
     return rects_
 
 
@@ -127,7 +128,7 @@ def initialize_cv2_tracker(input_frame, input_bb):
     new_bb = two_point_box_2_width_height_box(input_bb)
 
     # Create new tracker
-    tracker_ = cv2.TrackerKCF_create()
+    tracker_ = cv2.legacy.TrackerMOSSE_create()
 
     # Init new tracker
     tracker_.init(input_frame, new_bb)
@@ -157,11 +158,13 @@ def draw_counting_lines(input_frame, orientation, distance, colour):
 
 
 def draw_box_from_bb(in_frame, bb):
-
-    startpoint = bb[0], bb[1]
-    endpoint = bb[2], bb[3]
-    out_frame = cv2.rectangle(in_frame, startpoint, endpoint, (0, 0, 255), 2)
-    return out_frame
+    if bb != (0.0,0.0,0.0,0.0):
+        startpoint = int(bb[0]), int(bb[1])
+        endpoint = int(bb[2]), int(bb[3])
+        out_frame = cv2.rectangle(in_frame, startpoint, endpoint, (0, 0, 255), 2)
+        return out_frame
+    else:
+        return in_frame
 
 
 
@@ -228,7 +231,7 @@ H = None
 # instantiate our centroid tracker, then initialize a list to store
 # each of our dlib correlation trackers, followed by a dictionary to
 # map each unique object ID to a TrackableObject
-ct = CentroidTracker(maxDisappeared=40)  # , maxDistance=50
+ct = CentroidTracker(maxDisappeared=20)  # , maxDistance=50
 trackers = []
 trackableObjects = {}
 
