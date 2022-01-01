@@ -27,6 +27,7 @@ def preprocess_frame_detection(input_frame):
 
     return output_frame
 
+
 def preprocess_frame(input_frame, desired_width):
 
     resized_frame = imutils.resize(input_frame, width=desired_width)
@@ -37,9 +38,9 @@ def preprocess_frame(input_frame, desired_width):
 
     sharpened_frame = cv2.filter2D(resized_frame, -1, kernel)
 
-    output_frame = cv2.cvtColor(sharpened_frame, cv2.COLOR_BGR2RGB)
+    # output_frame = cv2.cvtColor(sharpened_frame, cv2.COLOR_BGR2RGB)
 
-    return output_frame
+    return sharpened_frame
 
 
 def run_detection_on_frame(input_frame):
@@ -109,17 +110,26 @@ def update_trackers_cv2(tracker_list, current_frame):
     rects_ = []
     for tracker_ in tracker_list:
 
-        rect_cv2 = tracker_.update(current_frame)
-        left, top, right, bottom = rect_cv2[1]
+        success, rect_cv2 = tracker_.update(current_frame)
+        (left, bottom, w, h) = rect_cv2
+        top = bottom + h
+        right = left + w
         #dlib_rect = dlib.rectangle(int(left), int(top), int(right), int(bottom))
         # add the bounding box coordinates to the rectangles list
-        rects_.append((left, top, right, bottom))
+        rects_.append((int(left), int(top), int(right), int(bottom)))
+        #rects_.append(dlib_rect)
     return rects_
 
 
 def initialize_cv2_tracker(input_frame, input_bb):
-    tracker = cv2.legacy.TrackerMOSSE_create()
-    tracker.init(input_frame, input_bb)
+    # Transform BB from left,bot,right,top to x,y,w,h
+    left = input_bb[0]
+    bot = input_bb[1]
+    right = input_bb[2]
+    top = input_bb[3]
+    new_bb = (left, bot, right - left, top - bot)
+    tracker = cv2.TrackerKCF_create()
+    tracker.init(input_frame, new_bb)
     return tracker
 
 
@@ -142,6 +152,16 @@ def draw_counting_lines(input_frame, orientation, distance, colour):
     else:
         cv2.line(input_frame, (w // 2 + half_dist, 0), (w // 2 + half_dist, h), colour, 2)
         cv2.line(input_frame, (w // 2 - half_dist, 0), (w // 2 - half_dist, h), colour, 2)
+
+
+def draw_box_from_bb(in_frame, bb):
+
+    startpoint = bb[0], bb[1]
+    endpoint = bb[2], bb[3]
+    out_frame = cv2.rectangle(in_frame, startpoint, endpoint, (0, 0, 255), 2)
+    return out_frame
+
+
 
 
 # construct the argument parse and parse the arguments
@@ -171,13 +191,15 @@ print('Printing to: %s' % current_file)
 total = 0
 # initialize the list of class labels MobileNet SSD was trained to
 # detect
-CLASSES = ["background", "person"]
+CLASSES = ["background", "aeroplane", "bicycle", "bird", "boat",
+          "bottle", "bus", "car", "cat", "chair", "cow", "diningtable",
+          "dog", "horse", "motorbike", "person", "pottedplant", "sheep",
+          "sofa", "train", "tvmonitor"]
 
-# ["background", "aeroplane", "bicycle", "bird", "boat",
-#           "bottle", "bus", "car", "cat", "chair", "cow", "diningtable",
-#           "dog", "horse", "motorbike", "person", "pottedplant", "sheep",
-#           "sofa", "train", "tvmonitor"]
 
+
+
+#["background", "person"]
 # load our serialized model from disk
 print("[INFO] loading model...")
 net = cv2.dnn.readNetFromCaffe(args["prototxt"], args["model"])
@@ -236,8 +258,8 @@ while True:
     # the frame from BGR to RGB for dlib
 
     # frame = cv2.rotate(frame, cv2.cv2.ROTATE_90_CLOCKWISE)
-    # frame = preprocess_frame(frame, 500)
-    frame = imutils.resize(frame, width=500)
+    frame = preprocess_frame(frame, 500)
+    #frame = imutils.resize(frame, width=500)
 
     # if the frame dimensions are empty, set them
     if W is None or H is None:
@@ -255,8 +277,8 @@ while True:
     # (2) the correlation trackers
     status = "Waiting"
     rects = []
-    print("Height: {}".format(H))
-    print("Width: {}".format(W))
+    #print("Height: {}".format(H))
+    #print("Width: {}".format(W))
     # check to see if we should run a more computationally expensive
     # object detection method to aid our tracker
     if totalFrames % args["skip_frames"] == 0:
@@ -281,7 +303,7 @@ while True:
             # add the tracker to our list of trackers so we can
             # utilize it during skip frames
             trackers.append(tracker)
-
+            frame = draw_box_from_bb(frame, bounding_box)
             # otherwise, we should utilize our object *trackers* rather than
             # object *detectors* to obtain a higher frame processing throughput
         end_time_detection = time.time()
@@ -292,8 +314,14 @@ while True:
         start_time_trackers = time.time()
         rects = update_trackers_cv2(trackers, frame)
         # rects = update_trackers_dlib(trackers, frame)
+
+        for rec in rects:
+            frame = draw_box_from_bb(frame, rec)
+
         end_time_trackers = time.time()
         print('updating trackers: {}'.format(end_time_trackers - start_time_trackers))
+
+
     # draw 2 horizontal lines in the center of the frame -- once an
     # object crosses this line we will determine whether they were
     # moving 'up' or 'down'
