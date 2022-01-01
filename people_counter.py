@@ -237,7 +237,7 @@ while True:
 
     # frame = cv2.rotate(frame, cv2.cv2.ROTATE_90_CLOCKWISE)
     # frame = preprocess_frame(frame, 500)
-    frame = imutils.resize(frame, height=500)
+    frame = imutils.resize(frame, width=500)
 
     # if the frame dimensions are empty, set them
     if W is None or H is None:
