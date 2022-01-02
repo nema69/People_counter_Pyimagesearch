@@ -13,142 +13,85 @@ import dlib
 import cv2
 
 
-def update_trackers_cv2(tracker_list, current_frame):
-    rects_ = []
-    for tracker_ in tracker_list:
-
-        rect_cv2 = tracker_.update(current_frame)
-        left, top, right, bottom = rect_cv2[1]
-        # dlib_rect = dlib.rectangle(int(left), int(top), int(right), int(bottom))
-        # add the bounding box coordinates to the rectangles list
-        rects_.append((left, top, right, bottom))
-    return rects_
-
-
-def initialize_cv2_tracker(input_frame, input_bb):
-    tracker = cv2.legacy.TrackerMOSSE_create()
-    tracker.init(input_frame, input_bb)
-    return tracker
-
-
-def initialize_dlib_tracker(input_frame, input_bb):
-    tracker = dlib.correlation_tracker()
-    (startX, startY, endX, endY) = input_bb
-    rect = dlib.rectangle(startX, startY, endX, endY)
-    tracker.start_track(input_frame, rect)
-    return tracker
-
-
-def preprocess_frame_detection(input_frame):
-    nh, nw = 224, 224
-    h, w, _ = input_frame.shape
-    if h < w:
-        off = (w - h) / 2
-        input_frame = input_frame[:, off:off + h]
-    else:
-        off = (h - w) / 2
-        input_frame = input_frame[off:off + h, :]
-    frame_resized = imutils.resize(input_frame, [nh, nw])
-    output_frame = cv2.cvtColor(frame_resized, cv2.COLOR_BGR2RGB)
-
-    return output_frame
-
-
-def preprocess_frame(input_frame, desired_width):
-    resized_frame = imutils.resize(input_frame, width=desired_width)
-
-    kernel = np.array([[-1, -1, -1],
-                       [-1, 9, -1],
-                       [-1, -1, -1]])
-
-    sharpened_frame = cv2.filter2D(resized_frame, -1, kernel)
-    return cv2.cvtColor(sharpened_frame, cv2.COLOR_BGR2RGB)
-
-
-def update_trackers_dlib(tracker_list, current_frame):
-    rects_ = []
-    for tracker_ in tracker_list:
-
-        tracker_.update(current_frame)
-        pos = tracker_.get_position()
-
-        # unpack the position object
-        startX_ = int(pos.left())
-        startY_ = int(pos.top())
-        endX_ = int(pos.right())
-        endY_ = int(pos.bottom())
-
-        # add the bounding box coordinates to the rectangles list
-        rects_.append((startX_, startY_, endX_, endY_))
-    return rects_
-
-
 class PeopleCounter:
-    def __init__(self, prototxt, model, *args, **kwargs):
+    def __init__(self, prototxt, model, **kwargs):
         self.prototxt = prototxt
         self.model = model
         self.input = kwargs.get('input', None)
+        print(self.input)
         self.output = kwargs.get('output', None)
         self.confidence = kwargs.get('confidence', 0.4)
         self.skip_frames = kwargs.get('skip_frames', 30)
 
-        # Person dict for better Direction detection
-        self.person_dict = dict()
+    @staticmethod
+    def update_trackers_cv2(tracker_list, current_frame):
+        rects_ = []
+        for tracker_ in tracker_list:
 
-        self.frame_counts = 110
-        self.frame_counts_up = 60
+            rect_cv2 = tracker_.update(current_frame)
+            left, top, right, bottom = rect_cv2[1]
+            # dlib_rect = dlib.rectangle(int(left), int(top), int(right), int(bottom))
+            # add the bounding box coordinates to the rectangles list
+            rects_.append((left, top, right, bottom))
+        return rects_
 
-        # Setup csv file
-        self.current_file = create_csv_file()
-        print('Printing to: %s' % self.current_file)
-        self.total = 0
+    @staticmethod
+    def initialize_cv2_tracker(input_frame, input_bb):
+        tracker = cv2.legacy.TrackerMOSSE_create()
+        tracker.init(input_frame, input_bb)
+        return tracker
 
-        # initialize the list of class labels MobileNet SSD was trained to
-        # detect
-        self.CLASSES = ["background", "person"]
+    @staticmethod
+    def initialize_dlib_tracker(input_frame, input_bb):
+        tracker = dlib.correlation_tracker()
+        (startX, startY, endX, endY) = input_bb
+        rect = dlib.rectangle(startX, startY, endX, endY)
+        tracker.start_track(input_frame, rect)
+        return tracker
 
-        # ["background", "aeroplane", "bicycle", "bird", "boat",
-        #           "bottle", "bus", "car", "cat", "chair", "cow", "diningtable",
-        #           "dog", "horse", "motorbike", "person", "pottedplant", "sheep",
-        #           "sofa", "train", "tvmonitor"]
-
-        # load our serialized model from disk
-        print("[INFO] loading model...")
-        self.net = cv2.dnn.readNetFromCaffe(prototxt, model)
-
-        # if a video path was not supplied, grab a reference to the webcam
-        if self.input is None:
-            print("[INFO] starting video stream...")
-            self.vs = VideoStream(src=0).start()
-            time.sleep(2.0)
-        # otherwise, grab a reference to the video file
+    @staticmethod
+    def preprocess_frame_detection(input_frame):
+        nh, nw = 224, 224
+        h, w, _ = input_frame.shape
+        if h < w:
+            off = (w - h) / 2
+            input_frame = input_frame[:, off:off + h]
         else:
-            print("[INFO] opening video file...")
-            self.vs = cv2.VideoCapture(self.input)
+            off = (h - w) / 2
+            input_frame = input_frame[off:off + h, :]
+        frame_resized = imutils.resize(input_frame, [nh, nw])
+        output_frame = cv2.cvtColor(frame_resized, cv2.COLOR_BGR2RGB)
 
-        # initialize the video writer (we'll instantiate later if need be)
-        self.writer = None
+        return output_frame
 
-        # initialize the frame dimensions (we'll set them as soon as we read
-        # the first frame from the video)
-        self.W = None
-        self.H = None
+    @staticmethod
+    def preprocess_frame(input_frame, desired_width):
+        resized_frame = imutils.resize(input_frame, width=desired_width)
 
-        # instantiate our centroid tracker, then initialize a list to store
-        # each of our dlib correlation trackers, followed by a dictionary to
-        # map each unique object ID to a TrackableObject
-        self.ct = CentroidTracker(maxDisappeared=40)  # , maxDistance=50
-        self.trackers = []
-        self.trackableObjects = {}
+        kernel = np.array([[-1, -1, -1],
+                           [-1, 9, -1],
+                           [-1, -1, -1]])
 
-        # initialize the total number of frames processed thus far, along
-        # with the total number of objects that have moved either up or down
-        self.totalFrames = 0
-        self.totalDown = 0
-        self.totalUp = 0
+        sharpened_frame = cv2.filter2D(resized_frame, -1, kernel)
+        return cv2.cvtColor(sharpened_frame, cv2.COLOR_BGR2RGB)
 
-        # start the frames per second throughput estimator
-        self.fps = FPS().start()
+    @staticmethod
+    def update_trackers_dlib(tracker_list, current_frame):
+        rects_ = []
+        for tracker_ in tracker_list:
+
+            tracker_.update(current_frame)
+            pos = tracker_.get_position()
+
+            # unpack the position object
+            startX_ = int(pos.left())
+            startY_ = int(pos.top())
+            endX_ = int(pos.right())
+            endY_ = int(pos.bottom())
+
+            # add the bounding box coordinates to the rectangles list
+            rects_.append((startX_, startY_, endX_, endY_))
+        return rects_
 
     def run_detection_on_frame(self, input_frame):
         # grab the frame dimensions and convert the frame to a blob
@@ -207,8 +150,65 @@ class PeopleCounter:
             cv2.line(input_frame, (w // 2 - half_dist, 0),
                      (w // 2 - half_dist, h), colour, 2)
 
-    def main_loop(self):
-        # loop over frames from the video stream
+    def main_loop(self, show_output):
+        # Person dict for better Direction detection
+        self.person_dict = dict()
+
+        self.frame_counts = 110
+        self.frame_counts_up = 60
+
+        # Setup csv file
+        self.current_file = create_csv_file()
+        print('Printing to: %s' % self.current_file)
+        self.total = 0
+
+        # initialize the list of class labels MobileNet SSD was trained to
+        # detect
+        self.CLASSES = ["background", "person"]
+
+        # ["background", "aeroplane", "bicycle", "bird", "boat",
+        #           "bottle", "bus", "car", "cat", "chair", "cow", "diningtable",
+        #           "dog", "horse", "motorbike", "person", "pottedplant", "sheep",
+        #           "sofa", "train", "tvmonitor"]
+
+        # load our serialized model from disk
+        print("[INFO] loading model...")
+        self.net = cv2.dnn.readNetFromCaffe(self.prototxt, self.model)
+
+        # if a video path was not supplied, grab a reference to the webcam
+        if self.input is None:
+            print("[INFO] starting video stream...")
+            self.vs = VideoStream(src=0).start()
+            time.sleep(2.0)
+        # otherwise, grab a reference to the video file
+        else:
+            print("[INFO] opening video file...")
+            self.vs = cv2.VideoCapture(self.input)
+
+        # initialize the video writer (we'll instantiate later if need be)
+        self.writer = None
+
+        # initialize the frame dimensions (we'll set them as soon as we read
+        # the first frame from the video)
+        self.W = None
+        self.H = None
+
+        # instantiate our centroid tracker, then initialize a list to store
+        # each of our dlib correlation trackers, followed by a dictionary to
+        # map each unique object ID to a TrackableObject
+        self.ct = CentroidTracker(maxDisappeared=40)  # , maxDistance=50
+        self.trackers = []
+        self.trackableObjects = {}
+
+        # initialize the total number of frames processed thus far, along
+        # with the total number of objects that have moved either up or down
+        self.totalFrames = 0
+        self.totalDown = 0
+        self.totalUp = 0
+
+        # start the frames per second throughput estimator
+        self.fps = FPS().start()
+
         while True:
             start_time_frame = time.time()
 
@@ -246,8 +246,6 @@ class PeopleCounter:
             # (2) the correlation trackers
             status = "Waiting"
             rects = []
-            print("Height: {}".format(self.H))
-            print("Width: {}".format(self.W))
             # check to see if we should run a more computationally expensive
             # object detection method to aid our tracker
             if self.totalFrames % self.skip_frames == 0:
@@ -267,7 +265,7 @@ class PeopleCounter:
                     # construct a dlib rectangle object from the bounding
                     # box coordinates and then start the dlib correlation
                     # tracker
-                    tracker = initialize_cv2_tracker(
+                    tracker = self.initialize_cv2_tracker(
                         self.frame, bounding_box)
                     # tracker = initialize_dlib_tracker(frame, bounding_box)
 
@@ -284,7 +282,7 @@ class PeopleCounter:
             else:
                 # loop over the trackers
                 start_time_trackers = time.time()
-                rects = update_trackers_cv2(self.trackers, self.frame)
+                rects = self.update_trackers_cv2(self.trackers, self.frame)
                 # rects = update_trackers_dlib(trackers, frame)
                 end_time_trackers = time.time()
                 print('updating trackers: {}'.format(
@@ -404,8 +402,8 @@ class PeopleCounter:
             print('frame_time: {}'.format(end_time_frame - start_time_frame))
         # stop the timer and display FPS information
         self.fps.stop()
-        print("[INFO] elapsed time: {:.2f}".format(fps.elapsed()))
-        print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))
+        print("[INFO] elapsed time: {:.2f}".format(self.fps.elapsed()))
+        print("[INFO] approx. FPS: {:.2f}".format(self.fps.fps()))
 
         # check to see if we need to release the video writer pointer
         if self.writer is not None:
