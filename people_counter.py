@@ -110,6 +110,7 @@ def update_trackers_dlib(tracker_list, current_frame):
 def update_trackers_cv2(tracker_list, current_frame):
 
     rects_ = []
+    success_list = []
 
     for tracker_ in tracker_list:
 
@@ -119,8 +120,8 @@ def update_trackers_cv2(tracker_list, current_frame):
         two_point_rect = width_height_box_2_two_point_box(rect_cv2)
         # add the bounding box coordinates to the rectangles list
         rects_.append(two_point_rect)
-
-    return rects_
+        success_list.append(success)
+    return rects_ ,success_list
 
 
 def initialize_cv2_tracker(input_frame, input_bb):
@@ -308,6 +309,7 @@ Vertical = 0
 Horizontal = 1
 Counting_direction = ["Vertical", "Horizontal"]
 orientation = Horizontal
+direction_dict = {1: 'Up', 2: 'Down', 3: 'Right', 4: 'Left'}
 
 
 # Setup csv file
@@ -351,7 +353,7 @@ H = None
 # instantiate our centroid tracker, then initialize a list to store
 # each of our dlib correlation trackers, followed by a dictionary to
 # map each unique object ID to a TrackableObject
-ct = CentroidTracker(maxDisappeared=40)  # , maxDistance=50
+ct = CentroidTracker(maxDisappeared=args["skip_frames"]*2)  # , maxDistance=50
 trackers = []
 trackableObjects = {}
 
@@ -433,12 +435,15 @@ while True:
     else:
         # loop over the trackers
         start_time_trackers = time.time()
-        rects = update_trackers_cv2(trackers, frame)
+        rects, success_list = update_trackers_cv2(trackers, frame)
         # rects = update_trackers_dlib(trackers, frame)
 
-        for rec in rects:
-            frame = draw_box_from_bb(frame, rec)
-
+        for count, rec in enumerate(rects):
+            success = success_list[count]
+            if success:
+                frame = draw_box_from_bb(frame, rec)
+            else:
+                print('Tracking Error')
         end_time_trackers = time.time()
         print('updating trackers: {}'.format(end_time_trackers - start_time_trackers))
 
@@ -519,8 +524,8 @@ while True:
     # construct a tuple of information we will be displaying on the
     # frame
     info = [
-        ("Up", totalUp),
-        ("Down", totalDown),
+        (direction_dict[1+(2*orientation)], totalUp),
+        (direction_dict[2+(2*orientation)], totalDown),
         ("Status", status),
     ]
 
@@ -543,9 +548,9 @@ while True:
     if total < totalUp + totalDown:
 
         if totalUp > last_totalUp:  # Determine Direction
-            direction = 'up'
+            direction = direction_dict[1+(2*orientation)]
         else:
-            direction = 'down'
+            direction = direction_dict[2+(2*orientation)]
 
         total = totalUp + totalDown  # Calculate total
         write_new_value(current_file, direction, total)  # Write new values to file
