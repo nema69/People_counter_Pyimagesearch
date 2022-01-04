@@ -394,7 +394,7 @@ while True:
     # resize the frame to have a maximum width of 500 pixels (the
     # less data we have, the faster we can process it), then convert
     # the frame from BGR to RGB for dlib
-    frame, frame_detection = preprocess_frame(frame, 800)
+    frame, frame_detection = preprocess_frame(frame, 700)
 
 
     # if the frame dimensions are empty, set them
