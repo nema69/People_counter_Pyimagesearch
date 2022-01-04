@@ -13,6 +13,7 @@ import dlib
 import cv2
 from functions import two_point_box_2_width_height_box
 from functions import width_height_box_2_two_point_box
+from videoread  import VideoStreamWidget
 #from line_profiler_pycharm import profile
 
 
@@ -31,9 +32,17 @@ def preprocess_frame_detection(input_frame):
     return output_frame
 
 
-def preprocess_frame(input_frame, desired_width):
+def preprocess_frame(input_frame, longest_side):
+    h, w, _ = input_frame.shape
+    if w > h:
+        dw = longest_side
+        dh = int(h/w*longest_side)
+    else:
+        dh = longest_side
+        dw = int(w/h * longest_side)
+    dim = (dw, dh)
 
-    resized_frame = imutils.resize(input_frame, width=desired_width)
+    resized_frame = cv2.resize(input_frame, dim, interpolation=cv2.INTER_LINEAR)
 
     kernel = np.array([[-1, -1, -1],
                        [-1, 9, -1],
@@ -43,7 +52,7 @@ def preprocess_frame(input_frame, desired_width):
 
     # output_frame = cv2.cvtColor(sharpened_frame, cv2.COLOR_BGR2RGB)
 
-    return sharpened_frame
+    return resized_frame, sharpened_frame
 
 
 def run_detection_on_frame(input_frame):
@@ -385,8 +394,8 @@ while True:
     # resize the frame to have a maximum width of 500 pixels (the
     # less data we have, the faster we can process it), then convert
     # the frame from BGR to RGB for dlib
-    frame_detection = preprocess_frame(frame, 500)
-    frame = imutils.resize(frame, height=600)
+    frame, frame_detection = preprocess_frame(frame, 800)
+
 
     # if the frame dimensions are empty, set them
     if W is None or H is None:
@@ -576,7 +585,7 @@ while True:
 fps.stop()
 print("[INFO] elapsed time: {:.2f}".format(fps.elapsed()))
 print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))
-
+print("Total Frames:{}".format(totalFrames))
 # check to see if we need to release the video writer pointer
 if writer is not None:
     writer.release()
