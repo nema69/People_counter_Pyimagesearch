@@ -13,6 +13,7 @@ import dlib
 import cv2
 from functions import two_point_box_2_width_height_box
 from functions import width_height_box_2_two_point_box
+#from line_profiler_pycharm import profile
 
 
 def preprocess_frame_detection(input_frame):
@@ -285,7 +286,10 @@ def count(objects, orientation,current_count):
 
 
 
-    # construct the argument parse and parse the arguments
+
+# construct the argument parse and parse the arguments
+
+
 ap = argparse.ArgumentParser()
 ap.add_argument("-p", "--prototxt", required=True,
                 help="path to Caffe 'deploy' prototxt file")
@@ -301,7 +305,7 @@ ap.add_argument("-s", "--skip-frames", type=int, default=30,
                 help="# of skip frames between detections")
 args = vars(ap.parse_args())
 
-# Person dict for better Direction detection
+# Setup for Counting and Direction
 person_dict = dict()
 frame_counts = 10
 frame_counts_up = 10
@@ -316,17 +320,15 @@ direction_dict = {1: 'Up', 2: 'Down', 3: 'Right', 4: 'Left'}
 current_file = create_csv_file()
 print('Printing to: %s' % current_file)
 total = 0
+
 # initialize the list of class labels MobileNet SSD was trained to
 # detect
 CLASSES = ["background", "aeroplane", "bicycle", "bird", "boat",
           "bottle", "bus", "car", "cat", "chair", "cow", "diningtable",
           "dog", "horse", "motorbike", "person", "pottedplant", "sheep",
           "sofa", "train", "tvmonitor"]
-
-
-
-
 #["background", "person"]
+
 # load our serialized model from disk
 print("[INFO] loading model...")
 net = cv2.dnn.readNetFromCaffe(args["prototxt"], args["model"])
@@ -351,9 +353,9 @@ W = None
 H = None
 
 # instantiate our centroid tracker, then initialize a list to store
-# each of our dlib correlation trackers, followed by a dictionary to
+# each of our trackers, followed by a dictionary to
 # map each unique object ID to a TrackableObject
-ct = CentroidTracker(maxDisappeared=args["skip_frames"]*2)  # , maxDistance=50
+ct = CentroidTracker(maxDisappeared=args["skip_frames"]*2, maxDistance=50)
 trackers = []
 trackableObjects = {}
 
@@ -457,6 +459,7 @@ while True:
 
     # use the centroid tracker to associate the (1) old object
     # centroids with (2) the newly computed object centroids
+    start_time_update_ct = time.time()
 
     objects = ct.update(rects)
 
@@ -542,7 +545,8 @@ while True:
     # show the output frame
     cv2.imshow("Frame", frame)
     key = cv2.waitKey(1) & 0xFF
-
+    end_time_update_ct = time.time()
+    print('updating ct and counting: {}'.format(end_time_update_ct - start_time_update_ct))
     # Write new info to csv file
     # Determine if total has gone up
     if total < totalUp + totalDown:
