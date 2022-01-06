@@ -7,7 +7,6 @@ from imutils.video import VideoStream
 from imutils.video import FPS
 import numpy as np
 import argparse
-import imutils
 import time
 import dlib
 import cv2
@@ -46,7 +45,6 @@ def preprocess_frame(input_frame, roi, longest_side):
 
 def run_detection_on_frame(input_frame):
     # grab the frame dimensions and convert the frame to a blob
-    input_frame = (input_frame)
     (h, w) = input_frame.shape[:2]
     blob = cv2.dnn.blobFromImage(input_frame, 0.007843, (w, h), (127, 127, 127))
     # pass the blob through the network and obtain the detections
@@ -61,16 +59,16 @@ def build_list_of_bounding_boxes(input_detections):
 
     out_list_bounding_boxes = []
     out_list_labels = []
-    for i in np.arange(0, input_detections.shape[2]):
+    for detection_no in np.arange(0, input_detections.shape[2]):
         # extract the confidence (i.e., probability) associated
         # with the prediction
-        confidence = input_detections[0, 0, i, 2]
+        confidence = input_detections[0, 0, detection_no, 2]
         # filter out weak detections by requiring a minimum
         # confidence
         if confidence > args["confidence"]:
             # extract the index of the class label from the
             # detections list
-            idx = int(detections[0, 0, i, 1])
+            idx = int(detections[0, 0, detection_no, 1])
             label = CLASSES[idx]
             # if the class label is not a person, ignore it
             if CLASSES[idx] != "person":
@@ -79,7 +77,7 @@ def build_list_of_bounding_boxes(input_detections):
             # compute the (x, y)-coordinates of the bounding box
             # for the object
             (h, w) = frame.shape[:2]
-            box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
+            box = detections[0, 0, detection_no, 3:7] * np.array([w, h, w, h])
             (startX, startY, endX, endY) = box.astype("int")
             bb = (startX, startY, endX, endY)
             out_list_bounding_boxes.append(bb)
@@ -110,18 +108,18 @@ def update_trackers_dlib(tracker_list, input_frame):
 def update_trackers_cv2(tracker_list, current_frame):
 
     rects_ = []
-    success_list = []
+    success_list_ = []
 
     for tracker_ in tracker_list:
 
         # get width height rect from tracker
-        success, rect_cv2 = tracker_.update(current_frame)
+        success_, rect_cv2 = tracker_.update(current_frame)
         # transform into 2 point rect
         two_point_rect = width_height_box_2_two_point_box(rect_cv2)
         # add the bounding box coordinates to the rectangles list
         rects_.append(two_point_rect)
-        success_list.append(success)
-    return rects_ ,success_list
+        success_list_.append(success_)
+    return rects_, success_list_
 
 
 def initialize_cv2_tracker(input_frame, input_bb):
@@ -138,12 +136,12 @@ def initialize_cv2_tracker(input_frame, input_bb):
 
 
 def initialize_dlib_tracker(input_frame, input_bb):
-     rgb_frame = cv2.cvtColor(input_frame, cv2.COLOR_BGR2RGB)
-     tracker = dlib.correlation_tracker()
-     (startX, startY, endX, endY) = input_bb
-     rect = dlib.rectangle(startX, startY, endX, endY)
-     tracker.start_track(rgb_frame, rect)
-     return tracker
+    rgb_frame = cv2.cvtColor(input_frame, cv2.COLOR_BGR2RGB)
+    tracker = dlib.correlation_tracker()
+    (startX, startY, endX, endY) = input_bb
+    rect = dlib.rectangle(startX, startY, endX, endY)
+    tracker.start_track(rgb_frame, rect)
+    return tracker
 
 
 def draw_counting_lines(input_frame, orientation, distance, colour):
@@ -160,7 +158,7 @@ def draw_counting_lines(input_frame, orientation, distance, colour):
 
 
 def draw_box_from_bb(in_frame, bb):
-    if bb != (0.0,0.0,0.0,0.0):
+    if bb != (0.0, 0.0, 0.0, 0.0):
         startpoint = int(bb[0]), int(bb[1])
         endpoint = int(bb[2]), int(bb[3])
         out_frame = cv2.rectangle(in_frame, startpoint, endpoint, (0, 0, 255), 2)
@@ -218,9 +216,9 @@ def check_if_count(trackable_object, orientation, totalUp, totalDown, offset):
         return totalUp, totalDown
 
 
-def capture_frame(src, queue_,fps):
+def capture_frame(src, queue_, framerate):
 
-    period = 1/fps
+    period = 1/framerate
     cap = cv2.VideoCapture(src)
     frame_no = 0
     while True:
@@ -283,9 +281,9 @@ total = 0
 # initialize the list of class labels MobileNet SSD was trained to
 # detect
 CLASSES = ["background", "aeroplane", "bicycle", "bird", "boat",
-          "bottle", "bus", "car", "cat", "chair", "cow", "diningtable",
-          "dog", "horse", "motorbike", "person", "pottedplant", "sheep",
-          "sofa", "train", "tvmonitor"]
+           "bottle", "bus", "car", "cat", "chair", "cow", "diningtable",
+           "dog", "horse", "motorbike", "person", "pottedplant", "sheep",
+           "sofa", "train", "tvmonitor"]
 #["background", "person"]
 
 # load our serialized model from disk
@@ -381,7 +379,7 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
 
         # crop the frame to the roi, resize the frame to have a maximum size
         # and sharpen it for detection
-        frame, frame_detection = preprocess_frame(frame, roi_coord, 700)
+        frame, frame_detection = preprocess_frame(frame, roi_coord, 400)
 
         # if the frame dimensions are empty, set them
         if W is None or H is None:
@@ -425,7 +423,6 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
 
                 # draw box around detections
                 frame = draw_box_from_bb(frame, bounding_box)
-
 
             end_time_detection = time.time()
             print('updating detection: {}'.format(end_time_detection - start_time_detection))
