@@ -34,17 +34,22 @@ def preprocess_frame_detection(input_frame):
     return output_frame
 
 
-def preprocess_frame(input_frame, longest_side):
-    h, w, _ = input_frame.shape
-    if w > h:
+def preprocess_frame(input_frame, roi, longest_side):
+    cropped_frame = input_frame[int(roi[1]):int(roi[1]+roi[3]-1), int(roi[0]):int(roi[0]+roi[2]-1)]
+
+    h, w, _ = cropped_frame.shape
+    if w > h and w > longest_side:
         dw = longest_side
         dh = int(h/w*longest_side)
-    else:
+    elif h > longest_side:
         dh = longest_side
         dw = int(w/h * longest_side)
+    else:
+        dh = int(h)
+        dw = int(w)
     dim = (dw, dh)
 
-    resized_frame = cv2.resize(input_frame, dim, interpolation=cv2.INTER_LINEAR)
+    resized_frame = cv2.resize(cropped_frame, dim, interpolation=cv2.INTER_LINEAR)
 
     kernel = np.array([[-1, -1, -1],
                        [-1, 9, -1],
@@ -101,11 +106,12 @@ def build_list_of_bounding_boxes(input_detections):
     return out_list_bounding_boxes, out_list_labels
 
 
-def update_trackers_dlib(tracker_list, current_frame):
+def update_trackers_dlib(tracker_list, input_frame):
     rects_ = []
+    rgb_frame = cv2.cvtColor(input_frame, cv2.COLOR_BGR2RGB)
     for tracker_ in tracker_list:
 
-        tracker_.update(current_frame)
+        tracker_.update(rgb_frame)
         pos = tracker_.get_position()
 
         # unpack the position object
@@ -141,7 +147,7 @@ def initialize_cv2_tracker(input_frame, input_bb):
     new_bb = two_point_box_2_width_height_box(input_bb)
 
     # Create new tracker
-    tracker_ = cv2.TrackerCSRT_create()
+    tracker_ = cv2.TrackerKCF_create()
 
     # Init new tracker
     tracker_.init(input_frame, new_bb)
@@ -150,10 +156,11 @@ def initialize_cv2_tracker(input_frame, input_bb):
 
 
 def initialize_dlib_tracker(input_frame, input_bb):
+     rgb_frame = cv2.cvtColor(input_frame, cv2.COLOR_BGR2RGB)
      tracker = dlib.correlation_tracker()
      (startX, startY, endX, endY) = input_bb
      rect = dlib.rectangle(startX, startY, endX, endY)
-     tracker.start_track(input_frame, rect)
+     tracker.start_track(rgb_frame, rect)
      return tracker
 
 
@@ -297,7 +304,7 @@ def count(objects, orientation,current_count):
 
 
 def capture_frame(src, queue_):
-    framerate = 30
+    framerate = 1000
     period = 1/framerate
     cap = cv2.VideoCapture(src)
     frame_no = 0
@@ -310,6 +317,14 @@ def capture_frame(src, queue_):
             time.sleep(period-(time.time()-start))
         if frame_ is None:
             break
+
+
+def get_roi(input_frame):
+    h = input_frame.shape[1]
+    #resized_frame = imutils.resize(input_frame,height=800)
+    roi = cv2.selectROI('ROI', input_frame, False)
+    cv2.destroyWindow('ROI')
+    return roi
 
 
 # construct the argument parse and parse the arguments
@@ -392,9 +407,11 @@ totalUp = 0
 
 # start the frames per second throughput estimator
 fps = FPS().start()
-
+#
+_, roiframe = vs.read()
+roi_coord =get_roi(roiframe)
 # Build queue for frames, normal queue for video read( preloads frames) and lifoqueue for "live" video"
-q = queue.LifoQueue()
+q = queue.Queue()
 max_frame = 0
 
 # init argument tuple for capture frame thread
@@ -404,6 +421,7 @@ params=(args["input"],q)
 with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
     # pack arguments with lamda
     f1 = executor.submit(lambda p: capture_frame(*p), params)
+
 
     # loop over frames from the video stream
     while True:
@@ -420,7 +438,10 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
 
         frame_num, new_frame = q.get(timeout=1)
 
-        if frame_num >= max_frame:
+        if new_frame is None:
+            break
+
+        if frame_num >= max_frame and new_frame is not None:
             max_frame = frame_num
             frame = new_frame
             print(frame_num)
@@ -438,7 +459,7 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
         # resize the frame to have a maximum width of 500 pixels (the
         # less data we have, the faster we can process it), then convert
         # the frame from BGR to RGB for dlib
-        frame, frame_detection = preprocess_frame(frame, 700)
+        frame, frame_detection = preprocess_frame(frame, roi_coord, 700)
 
 
         # if the frame dimensions are empty, set them
@@ -475,8 +496,8 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                 # construct a dlib rectangle object from the bounding
                 # box coordinates and then start the dlib correlation
                 # tracker
-                #tracker = initialize_cv2_tracker(frame, bounding_box)
-                tracker = initialize_dlib_tracker(frame, bounding_box)
+                tracker = initialize_cv2_tracker(frame, bounding_box)
+                #tracker = initialize_dlib_tracker(frame, bounding_box)
 
                 # add the tracker to our list of trackers so we can
                 # utilize it during skip frames
@@ -490,15 +511,15 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
         else:
             # loop over the trackers
             start_time_trackers = time.time()
-            #rects, success_list = update_trackers_cv2(trackers, frame)
-            rects = update_trackers_dlib(trackers, frame)
+            rects, success_list = update_trackers_cv2(trackers, frame)
+            #rects = update_trackers_dlib(trackers, frame)
 
-            #for count, rec in enumerate(rects):
-            #    success = success_list[count]
-            #    if success:
-                    #frame = draw_box_from_bb(frame, rec)
-            #    else:
-            #        print('Tracking Error')
+            for count, rec in enumerate(rects):
+                success = success_list[count]
+                if success:
+                    frame = draw_box_from_bb(frame, rec)
+                else:
+                    print('Tracking Error')
             end_time_trackers = time.time()
             print('updating trackers: {}'.format(end_time_trackers - start_time_trackers))
 
