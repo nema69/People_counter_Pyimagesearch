@@ -297,10 +297,17 @@ def count(objects, orientation,current_count):
 
 
 def capture_frame(src, queue_):
+    framerate = 30
+    period = 1/framerate
     cap = cv2.VideoCapture(src)
+    frame_no = 0
     while True:
+        start = time.time()
         _, frame_ = cap.read()
-        queue_.put(frame_)
+        frame_no = frame_no+1
+        queue_.put((frame_no, frame_))
+        if time.time()-start < period:
+            time.sleep(period-(time.time()-start))
         if frame_ is None:
             break
 
@@ -385,238 +392,255 @@ totalUp = 0
 
 # start the frames per second throughput estimator
 fps = FPS().start()
-#video_read = VideoStreamWidget(args["input"])
-q = queue.Queue()
-video_read = VideoStreamWidget(args["input"])
+
+# Build queue for frames, normal queue for video read( preloads frames) and lifoqueue for "live" video"
+q = queue.LifoQueue()
+max_frame = 0
+
+# init argument tuple for capture frame thread
 params=(args["input"],q)
-with concurrent.futures.ThreadPoolExecutor() as executor:
+
+# start thread
+with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+    # pack arguments with lamda
     f1 = executor.submit(lambda p: capture_frame(*p), params)
 
-# loop over frames from the video stream
-while True:
-    start_time_frame = time.time()
+    # loop over frames from the video stream
+    while True:
+        start_time_frame = time.time()
 
-    # grab the next frame and handle if we are reading from either
-    # VideoCapture or VideoStream
-    #frame = vs.read()
-    #frame = frame[1] if args.get("input", False) else frame
+        # grab the next frame and handle if we are reading from either
+        # VideoCapture or VideoStream
+        #frame = vs.read()
+        #frame = frame[1] if args.get("input", False) else frame
 
-        #result = f1.result()
-    print(f1.running())
-    frame = q.get(timeout=5)
-
-
-    # if we are viewing a video and we did not grab a frame then we
-    # have reached the end of the video
-    if args["input"] is not None and frame is None:
-        break
-
-    # resize the frame to have a maximum width of 500 pixels (the
-    # less data we have, the faster we can process it), then convert
-    # the frame from BGR to RGB for dlib
-    frame, frame_detection = preprocess_frame(frame, 700)
+            #result = f1.result()
+        print(f1.running())
 
 
-    # if the frame dimensions are empty, set them
-    if W is None or H is None:
-        (H, W) = frame.shape[:2]
+        frame_num, new_frame = q.get(timeout=1)
 
-    # if we are supposed to be writing a video to disk, initialize
-    # the writer
-    if args["output"] is not None and writer is None:
-        fourcc = cv2.VideoWriter_fourcc(*"MJPG")
-        writer = cv2.VideoWriter(args["output"], fourcc, 30,
-                                 (W, H), True)
-
-    # initialize the current status along with our list of bounding
-    # box rectangles returned by either (1) our object detector or
-    # (2) the correlation trackers
-    status = "Waiting"
-    rects = []
-    # check to see if we should run a more computationally expensive
-    # object detection method to aid our tracker
-    if totalFrames % args["skip_frames"] == 0:
-        start_time_detection = time.time()
-        # set the status and initialize our new set of object trackers
-        status = "Detecting"
-        trackers = []
-
-        detections = run_detection_on_frame(frame_detection)
-
-        list_of_bounding_boxes, list_of_labels = build_list_of_bounding_boxes(detections)
-
-        for bounding_box in list_of_bounding_boxes:
-
-            # (startX, startY, endX, endY) = bounding_box
-            # construct a dlib rectangle object from the bounding
-            # box coordinates and then start the dlib correlation
-            # tracker
-            tracker = initialize_cv2_tracker(frame, bounding_box)
-            # tracker = initialize_dlib_tracker(frame, bounding_box)
-
-            # add the tracker to our list of trackers so we can
-            # utilize it during skip frames
-            trackers.append(tracker)
-            frame = draw_box_from_bb(frame, bounding_box)
-            # otherwise, we should utilize our object *trackers* rather than
-            # object *detectors* to obtain a higher frame processing throughput
-        end_time_detection = time.time()
-        print('updating detection: {}'.format(end_time_detection - start_time_detection))
-
-    else:
-        # loop over the trackers
-        start_time_trackers = time.time()
-        rects, success_list = update_trackers_cv2(trackers, frame)
-        # rects = update_trackers_dlib(trackers, frame)
-
-        for count, rec in enumerate(rects):
-            success = success_list[count]
-            if success:
-                frame = draw_box_from_bb(frame, rec)
-            else:
-                print('Tracking Error')
-        end_time_trackers = time.time()
-        print('updating trackers: {}'.format(end_time_trackers - start_time_trackers))
-
-
-    # draw 2 horizontal lines in the center of the frame -- once an
-    # object crosses this line we will determine whether they were
-    # moving 'up' or 'down'
-    # cv2.line(frame, (0, H // 5), (W, H // 5), (0, 255, 255), 2)
-    # cv2.line(frame, (0, H // 3 * 2), (W, H // 3 * 2), (0, 255, 255), 2)
-    draw_counting_lines(frame, orientation, 100, (255, 255, 255))
-
-    # use the centroid tracker to associate the (1) old object
-    # centroids with (2) the newly computed object centroids
-    start_time_update_ct = time.time()
-
-    objects = ct.update(rects)
-
-    # loop over the tracked objects
-    for (objectID, centroid) in objects.items():
-        # check to see if a trackable object exists for the current
-        # object ID
-        to = trackableObjects.get(objectID, None)
-
-        # if there is no existing trackable object, create one
-        if to is None:
-            to = TrackableObject(objectID, centroid)
-
-        # otherwise, there is a trackable object so we can utilize it
-        # to determine direction
+        if frame_num >= max_frame:
+            max_frame = frame_num
+            frame = new_frame
+            print(frame_num)
         else:
-            # the difference between the y-coordinate of the *current*
-            # centroid and the mean of *previous* centroids will tell
-            # us in which direction the object is moving (negative for
-            # 'up' and positive for 'down')
-            # y = [c[1] for c in to.centroids]
-            # direction = centroid[1] - np.mean(y)
-            if orientation:
-                direction = to.direction_horizontal()
-            else:
-                direction = to.direction_vertical()
+            frame = frame
 
-            to.centroids.append(centroid)
 
-            #print('X: {}'.format(to.x_direction))
-            #print('Y: {}'.format(to.y_direction))
 
-            # check to see if the object has been counted or not
-            if not to.counted:
-                #pass
-                # if the direction is negative (indicating the object
-                # is moving up) AND the centroid is above the center
-                # line, count the object
-                # if direction < 0 and centroid[1] < H // 3 and person_dict[str(objectID)] > frame_counts_up:
-                #     totalUp += 1
-                #     to.counted = True
-                #
-                # # if the direction is positive (indicating the object
-                # # is moving down) AND the centroid is below the
-                # # center line, count the object
-                # elif direction > 0 and centroid[1] > H // 3 * 2:
-                #     if person_dict[str(objectID)] > frame_counts:
-                #         totalDown += 1
-                #         to.counted = True
-                totalUp, totalDown = check_if_count(to, orientation, totalUp, totalDown)
-        # store the trackable object in our dictionary
-        trackableObjects[objectID] = to
 
-        # draw both the ID of the object and the centroid of the
-        # object on the output frame
-        if str(objectID) in person_dict:
-            person_dict[str(objectID)] += 1
+        # if we are viewing a video and we did not grab a frame then we
+        # have reached the end of the video
+        if args["input"] is not None and frame is None:
+            break
+
+        # resize the frame to have a maximum width of 500 pixels (the
+        # less data we have, the faster we can process it), then convert
+        # the frame from BGR to RGB for dlib
+        frame, frame_detection = preprocess_frame(frame, 700)
+
+
+        # if the frame dimensions are empty, set them
+        if W is None or H is None:
+            (H, W) = frame.shape[:2]
+
+        # if we are supposed to be writing a video to disk, initialize
+        # the writer
+        if args["output"] is not None and writer is None:
+            fourcc = cv2.VideoWriter_fourcc(*"MJPG")
+            writer = cv2.VideoWriter(args["output"], fourcc, 30,
+                                     (W, H), True)
+
+        # initialize the current status along with our list of bounding
+        # box rectangles returned by either (1) our object detector or
+        # (2) the correlation trackers
+        status = "Waiting"
+        rects = []
+        # check to see if we should run a more computationally expensive
+        # object detection method to aid our tracker
+        if totalFrames % args["skip_frames"] == 0:
+            start_time_detection = time.time()
+            # set the status and initialize our new set of object trackers
+            status = "Detecting"
+            trackers = []
+
+            detections = run_detection_on_frame(frame_detection)
+
+            list_of_bounding_boxes, list_of_labels = build_list_of_bounding_boxes(detections)
+
+            for bounding_box in list_of_bounding_boxes:
+
+                # (startX, startY, endX, endY) = bounding_box
+                # construct a dlib rectangle object from the bounding
+                # box coordinates and then start the dlib correlation
+                # tracker
+                #tracker = initialize_cv2_tracker(frame, bounding_box)
+                tracker = initialize_dlib_tracker(frame, bounding_box)
+
+                # add the tracker to our list of trackers so we can
+                # utilize it during skip frames
+                trackers.append(tracker)
+                frame = draw_box_from_bb(frame, bounding_box)
+                # otherwise, we should utilize our object *trackers* rather than
+                # object *detectors* to obtain a higher frame processing throughput
+            end_time_detection = time.time()
+            print('updating detection: {}'.format(end_time_detection - start_time_detection))
+
         else:
-            person_dict[str(objectID)] = 0
-        text = "ID {}".format(objectID)
-        cv2.putText(frame, text, (centroid[0] - 10, centroid[1] - 10),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-        cv2.circle(frame, (centroid[0], centroid[1]), 4, (0, 255, 0), -1)
+            # loop over the trackers
+            start_time_trackers = time.time()
+            #rects, success_list = update_trackers_cv2(trackers, frame)
+            rects = update_trackers_dlib(trackers, frame)
 
-    # construct a tuple of information we will be displaying on the
-    # frame
-    info = [
-        (direction_dict[1+(2*orientation)], totalUp),
-        (direction_dict[2+(2*orientation)], totalDown),
-        ("Status", status),
-    ]
+            #for count, rec in enumerate(rects):
+            #    success = success_list[count]
+            #    if success:
+                    #frame = draw_box_from_bb(frame, rec)
+            #    else:
+            #        print('Tracking Error')
+            end_time_trackers = time.time()
+            print('updating trackers: {}'.format(end_time_trackers - start_time_trackers))
 
-    # loop over the info tuples and draw them on our frame
-    for (i, (k, v)) in enumerate(info):
-        text = "{}: {}".format(k, v)
-        cv2.putText(frame, text, (10, H - ((i * 20) + 20)),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
 
-    # check to see if we should write the frame to disk
+        # draw 2 horizontal lines in the center of the frame -- once an
+        # object crosses this line we will determine whether they were
+        # moving 'up' or 'down'
+        # cv2.line(frame, (0, H // 5), (W, H // 5), (0, 255, 255), 2)
+        # cv2.line(frame, (0, H // 3 * 2), (W, H // 3 * 2), (0, 255, 255), 2)
+        draw_counting_lines(frame, orientation, 100, (255, 255, 255))
+
+        # use the centroid tracker to associate the (1) old object
+        # centroids with (2) the newly computed object centroids
+        start_time_update_ct = time.time()
+
+        objects = ct.update(rects)
+
+        # loop over the tracked objects
+        for (objectID, centroid) in objects.items():
+            # check to see if a trackable object exists for the current
+            # object ID
+            to = trackableObjects.get(objectID, None)
+
+            # if there is no existing trackable object, create one
+            if to is None:
+                to = TrackableObject(objectID, centroid)
+
+            # otherwise, there is a trackable object so we can utilize it
+            # to determine direction
+            else:
+                # the difference between the y-coordinate of the *current*
+                # centroid and the mean of *previous* centroids will tell
+                # us in which direction the object is moving (negative for
+                # 'up' and positive for 'down')
+                # y = [c[1] for c in to.centroids]
+                # direction = centroid[1] - np.mean(y)
+                if orientation:
+                    direction = to.direction_horizontal()
+                else:
+                    direction = to.direction_vertical()
+
+                to.centroids.append(centroid)
+
+                #print('X: {}'.format(to.x_direction))
+                #print('Y: {}'.format(to.y_direction))
+
+                # check to see if the object has been counted or not
+                if not to.counted:
+                    #pass
+                    # if the direction is negative (indicating the object
+                    # is moving up) AND the centroid is above the center
+                    # line, count the object
+                    # if direction < 0 and centroid[1] < H // 3 and person_dict[str(objectID)] > frame_counts_up:
+                    #     totalUp += 1
+                    #     to.counted = True
+                    #
+                    # # if the direction is positive (indicating the object
+                    # # is moving down) AND the centroid is below the
+                    # # center line, count the object
+                    # elif direction > 0 and centroid[1] > H // 3 * 2:
+                    #     if person_dict[str(objectID)] > frame_counts:
+                    #         totalDown += 1
+                    #         to.counted = True
+                    totalUp, totalDown = check_if_count(to, orientation, totalUp, totalDown)
+            # store the trackable object in our dictionary
+            trackableObjects[objectID] = to
+
+            # draw both the ID of the object and the centroid of the
+            # object on the output frame
+            if str(objectID) in person_dict:
+                person_dict[str(objectID)] += 1
+            else:
+                person_dict[str(objectID)] = 0
+            text = "ID {}".format(objectID)
+            cv2.putText(frame, text, (centroid[0] - 10, centroid[1] - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+            cv2.circle(frame, (centroid[0], centroid[1]), 4, (0, 255, 0), -1)
+
+        # construct a tuple of information we will be displaying on the
+        # frame
+        info = [
+            (direction_dict[1+(2*orientation)], totalUp),
+            (direction_dict[2+(2*orientation)], totalDown),
+            ("Status", status),
+        ]
+
+        # loop over the info tuples and draw them on our frame
+        for (i, (k, v)) in enumerate(info):
+            text = "{}: {}".format(k, v)
+            cv2.putText(frame, text, (10, H - ((i * 20) + 20)),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+
+        # check to see if we should write the frame to disk
+        if writer is not None:
+            writer.write(frame)
+
+        # show the output frame
+        cv2.imshow("Frame", frame)
+        key = cv2.waitKey(1) & 0xFF
+        end_time_update_ct = time.time()
+        print('updating ct and counting: {}'.format(end_time_update_ct - start_time_update_ct))
+        # Write new info to csv file
+        # Determine if total has gone up
+        if total < totalUp + totalDown:
+
+            if totalUp > last_totalUp:  # Determine Direction
+                direction = direction_dict[1+(2*orientation)]
+            else:
+                direction = direction_dict[2+(2*orientation)]
+
+            total = totalUp + totalDown  # Calculate total
+            write_new_value(current_file, direction, total)  # Write new values to file
+
+        last_totalUp = totalUp
+        last_totalDown = totalDown
+
+        # if the `q` key was pressed, break from the loop
+        if key == ord("q"):
+            break
+
+        # increment the total number of frames processed thus far and
+        # then update the FPS counter
+        totalFrames += 1
+        fps.update()
+        end_time_frame = time.time()
+        print('frame_time: {}'.format(end_time_frame - start_time_frame))
+    # stop the timer and display FPS information
+    fps.stop()
+    print("[INFO] elapsed time: {:.2f}".format(fps.elapsed()))
+    print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))
+    print("Total Frames:{}".format(totalFrames))
+    # check to see if we need to release the video writer pointer
     if writer is not None:
-        writer.write(frame)
+        writer.release()
 
-    # show the output frame
-    cv2.imshow("Frame", frame)
-    key = cv2.waitKey(1) & 0xFF
-    end_time_update_ct = time.time()
-    print('updating ct and counting: {}'.format(end_time_update_ct - start_time_update_ct))
-    # Write new info to csv file
-    # Determine if total has gone up
-    if total < totalUp + totalDown:
+    # if we are not using a video file, stop the camera video stream
+    if not args.get("input", False):
+        vs.stop()
 
-        if totalUp > last_totalUp:  # Determine Direction
-            direction = direction_dict[1+(2*orientation)]
-        else:
-            direction = direction_dict[2+(2*orientation)]
+    # otherwise, release the video file pointer
+    else:
+        vs.release()
 
-        total = totalUp + totalDown  # Calculate total
-        write_new_value(current_file, direction, total)  # Write new values to file
-
-    last_totalUp = totalUp
-    last_totalDown = totalDown
-
-    # if the `q` key was pressed, break from the loop
-    if key == ord("q"):
-        break
-
-    # increment the total number of frames processed thus far and
-    # then update the FPS counter
-    totalFrames += 1
-    fps.update()
-    end_time_frame = time.time()
-    print('frame_time: {}'.format(end_time_frame - start_time_frame))
-# stop the timer and display FPS information
-fps.stop()
-print("[INFO] elapsed time: {:.2f}".format(fps.elapsed()))
-print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))
-print("Total Frames:{}".format(totalFrames))
-# check to see if we need to release the video writer pointer
-if writer is not None:
-    writer.release()
-
-# if we are not using a video file, stop the camera video stream
-if not args.get("input", False):
-    vs.stop()
-
-# otherwise, release the video file pointer
-else:
-    vs.release()
-
-# close any open windows
-cv2.destroyAllWindows()
+    # close any open windows
+    cv2.destroyAllWindows()
