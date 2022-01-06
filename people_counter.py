@@ -372,6 +372,8 @@ CLASSES = ["background", "aeroplane", "bicycle", "bird", "boat",
 # load our serialized model from disk
 print("[INFO] loading model...")
 net = cv2.dnn.readNetFromCaffe(args["prototxt"], args["model"])
+net.setPreferableBackend(cv2.dnn.DNN_BACKEND_CUDA)
+net.setPreferableTarget(cv2.dnn.DNN_TARGET_CUDA)
 
 # if a video path was not supplied, grab a reference to the webcam
 if not args.get("input", False):
