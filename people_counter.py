@@ -303,9 +303,9 @@ def count(objects, orientation,current_count):
     return current_count
 
 
-def capture_frame(src, queue_):
-    framerate = 1000
-    period = 1/framerate
+def capture_frame(src, queue_,fps):
+
+    period = 1/fps
     cap = cv2.VideoCapture(src)
     frame_no = 0
     while True:
@@ -316,7 +316,7 @@ def capture_frame(src, queue_):
         if time.time()-start < period:
             time.sleep(period-(time.time()-start))
         if frame_ is None:
-            break
+            continue
 
 
 def get_roi(input_frame):
@@ -413,11 +413,11 @@ fps = FPS().start()
 _, roiframe = vs.read()
 roi_coord =get_roi(roiframe)
 # Build queue for frames, normal queue for video read( preloads frames) and lifoqueue for "live" video"
-q = queue.Queue()
+q = queue.LifoQueue(maxsize=10)
 max_frame = 0
 
 # init argument tuple for capture frame thread
-params=(args["input"],q)
+params=(args["input"],q,30)
 
 # start thread
 with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
@@ -442,13 +442,15 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
 
         if new_frame is None:
             break
+        print(f'current_frame:{frame_num} max frame:{max_frame}')
 
         if frame_num >= max_frame and new_frame is not None:
             max_frame = frame_num
             frame = new_frame
-            print(frame_num)
+            backup_frame = frame
+
         else:
-            frame = frame
+            frame = backup_frame
 
 
 
@@ -640,6 +642,7 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
 
         # if the `q` key was pressed, break from the loop
         if key == ord("q"):
+            executor.shutdown(wait=False)
             break
 
         # increment the total number of frames processed thus far and
