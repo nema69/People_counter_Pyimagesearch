@@ -234,11 +234,14 @@ def capture_frame(src, queue_,fps):
             continue
 
 
-def get_roi(input_frame):
-    h = input_frame.shape[1]
-    #resized_frame = imutils.resize(input_frame,height=800)
-    roi = cv2.selectROI('ROI', input_frame, False)
+def get_roi(input_frame, scale):
+    h, w, _ = input_frame.shape
+    nh = int(h * scale)
+    nw = int(w * scale)
+    resized_frame = cv2.resize(input_frame, (nw, nh))
+    roi_scaled = cv2.selectROI('ROI', resized_frame, False)
     cv2.destroyWindow('ROI')
+    roi = tuple(x/scale for x in roi_scaled)
     return roi
 
 
@@ -327,9 +330,10 @@ totalUp = 0
 fps = FPS().start()
 # Get one frame for determining ROI
 _, roiframe = vs.read()
-roi_coord =get_roi(roiframe)
+roi_coord = get_roi(roiframe, 0.5)
+
 # Build queue for frames, normal queue for video read( preloads frames) and lifoqueue for "live" video"
-q = queue.LifoQueue(maxsize=10)
+q = queue.Queue(maxsize=10)
 max_frame = 0
 
 # init argument tuple for capture frame thread
