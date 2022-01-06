@@ -13,7 +13,9 @@ import dlib
 import cv2
 from functions import two_point_box_2_width_height_box
 from functions import width_height_box_2_two_point_box
+import concurrent.futures
 from videoread  import VideoStreamWidget
+import queue
 #from line_profiler_pycharm import profile
 
 
@@ -294,6 +296,13 @@ def count(objects, orientation,current_count):
     return current_count
 
 
+def capture_frame(src, queue_):
+    cap = cv2.VideoCapture(src)
+    while True:
+        _, frame_ = cap.read()
+        queue_.put(frame_)
+        if frame_ is None:
+            break
 
 
 # construct the argument parse and parse the arguments
@@ -376,6 +385,12 @@ totalUp = 0
 
 # start the frames per second throughput estimator
 fps = FPS().start()
+#video_read = VideoStreamWidget(args["input"])
+q = queue.Queue()
+video_read = VideoStreamWidget(args["input"])
+params=(args["input"],q)
+with concurrent.futures.ThreadPoolExecutor() as executor:
+    f1 = executor.submit(lambda p: capture_frame(*p), params)
 
 # loop over frames from the video stream
 while True:
@@ -383,8 +398,13 @@ while True:
 
     # grab the next frame and handle if we are reading from either
     # VideoCapture or VideoStream
-    frame = vs.read()
-    frame = frame[1] if args.get("input", False) else frame
+    #frame = vs.read()
+    #frame = frame[1] if args.get("input", False) else frame
+
+        #result = f1.result()
+    print(f1.running())
+    frame = q.get(timeout=5)
+
 
     # if we are viewing a video and we did not grab a frame then we
     # have reached the end of the video
