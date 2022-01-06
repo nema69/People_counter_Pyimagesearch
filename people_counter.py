@@ -14,24 +14,8 @@ import cv2
 from functions import two_point_box_2_width_height_box
 from functions import width_height_box_2_two_point_box
 import concurrent.futures
-from videoread  import VideoStreamWidget
+
 import queue
-#from line_profiler_pycharm import profile
-
-
-def preprocess_frame_detection(input_frame):
-    nh, nw = 224, 224
-    h, w, _ = input_frame.shape
-    if h < w:
-        off = (w - h) / 2
-        input_frame = input_frame[:, off:off + h]
-    else:
-        off = (h - w) / 2
-        input_frame = input_frame[off:off + h, :]
-    frame_resized = imutils.resize(input_frame, [nh, nw])
-    output_frame = cv2.cvtColor(frame_resized, cv2.COLOR_BGR2RGB)
-
-    return output_frame
 
 
 def preprocess_frame(input_frame, roi, longest_side):
@@ -56,8 +40,6 @@ def preprocess_frame(input_frame, roi, longest_side):
                        [-1, -1, -1]])
 
     sharpened_frame = cv2.filter2D(resized_frame, -1, kernel)
-
-    # output_frame = cv2.cvtColor(sharpened_frame, cv2.COLOR_BGR2RGB)
 
     return resized_frame, sharpened_frame
 
@@ -204,103 +186,36 @@ def determine_direction(centroid, orientation):
         return direction_value
 
 
-def check_if_count(trackable_object, orientation, totalUp, totalDown):
+def check_if_count(trackable_object, orientation, totalUp, totalDown, offset):
 
     # orientation = 1: objects are moving along the x axis
     if orientation:
         # calculate horizontal direction
         trackable_object.direction_horizontal()
         # direction < 0: objects are moving right (x getting more pos), centroid x position ([0][0]) is right of W//3 * 2
-        if trackable_object.x_direction < 0 and trackable_object.centroids[-1][0] > W // 3 * 2 and person_dict[str(trackable_object.objectID)] > frame_counts_up:
+        if trackable_object.x_direction < 0 and trackable_object.centroids[-1][0] > W // 2 + offset and person_dict[str(trackable_object.objectID)] > frame_counts_up:
             totalUp += 1
             trackable_object.counted = True
 
         # direction > 0: objects are moving left (x getting more neg), centroid x position ([0][0]) is left of W//3
-        elif trackable_object.x_direction > 0 and trackable_object.centroids[-1][0] < W // 3 and person_dict[str(trackable_object.objectID)] > frame_counts_up:
+        elif trackable_object.x_direction > 0 and trackable_object.centroids[-1][0] < W // 2 - offset and person_dict[str(trackable_object.objectID)] > frame_counts_up:
                 totalDown += 1
                 to.counted = True
         return totalUp, totalDown
 
     else:
-        if direction < 0 and centroid[0] < W // 3 and person_dict[str(objectID)] > frame_counts_up:
+        if direction < 0 and centroid[0] < W // 2 - offset and person_dict[str(objectID)] > frame_counts_up:
             totalUp += 1
             to.counted = True
 
         # if the direction is positive (indicating the object
         # is moving down) AND the centroid is below the
         # center line, count the object
-        elif direction > 0 and centroid[0] > W // 3 * 2:
+        elif direction > 0 and centroid[0] > W // 2 + offset:
             if person_dict[str(objectID)] > frame_counts:
                 totalDown += 1
                 to.counted = True
         return totalUp, totalDown
-
-
-def count(objects, orientation,current_count):
-
-    for (objectID, centroid) in objects.items():
-        # check to see if a trackable object exists for the current
-        # object ID
-        to = trackableObjects.get(objectID, None)
-
-        # if there is no existing trackable object, create one
-        if to is None:
-            to = TrackableObject(objectID, centroid)
-
-        # otherwise, there is a trackable object so we can utilize it
-        # to determine direction
-        else:
-            # the difference between the y-coordinate of the *current*
-            # centroid and the mean of *previous* centroids will tell
-            # us in which direction the object is moving (negative for
-            # 'up' and positive for 'down')
-            # y = [c[1] for c in to.centroids]
-            # direction = centroid[1] - np.mean(y)
-            # 0 = Vertical
-            if orientation == 0:
-                # c[1] y component of location history
-                y = [c[1] for c in to.centroids]
-                # negative = up , positive = down
-                direction = centroid[1] - np.mean(y)
-
-            else:
-                # c[1] y component of location history
-                y = [c[0] for c in to.centroids]
-                # negative = up , positive = down
-                direction = centroid[0] - np.mean(y)
-
-        to.centroids.append(centroid)
-
-        # check to see if the object has been counted or not
-        if not to.counted:
-            if orientation == 0:
-                if direction < 0 and centroid[1] < H // 3 and person_dict[str(objectID)] > frame_counts_up:
-                    current_count[0] += 1
-                    to.counted = True
-
-                # if the direction is positive (indicating the object
-                # is moving down) AND the centroid is below the
-                # center line, count the object
-                elif direction > 0 and centroid[1] > H // 3 * 2:
-                    if person_dict[str(objectID)] > frame_counts:
-                        current_count[1] += 1
-                        to.counted = True
-
-            else:
-                if direction < 0 and centroid[0] < W // 3 and person_dict[str(objectID)] > frame_counts_up:
-                    current_count[0] += 1
-                    to.counted = True
-
-                # if the direction is positive (indicating the object
-                # is moving down) AND the centroid is below the
-                # center line, count the object
-                elif direction > 0 and centroid[0] > W // 3 * 2:
-                    if person_dict[str(objectID)] > frame_counts:
-                        current_count[1] += 1
-                        to.counted = True
-
-    trackableObjects[objectID] = to
-    return current_count
 
 
 def capture_frame(src, queue_,fps):
@@ -346,6 +261,7 @@ ap.add_argument("-s", "--skip-frames", type=int, default=30,
 args = vars(ap.parse_args())
 
 # Setup for Counting and Direction
+offset_dist = 0
 person_dict = dict()
 frame_counts = 10
 frame_counts_up = 10
@@ -409,7 +325,7 @@ totalUp = 0
 
 # start the frames per second throughput estimator
 fps = FPS().start()
-#
+# Get one frame for determining ROI
 _, roiframe = vs.read()
 roi_coord =get_roi(roiframe)
 # Build queue for frames, normal queue for video read( preloads frames) and lifoqueue for "live" video"
@@ -417,7 +333,7 @@ q = queue.LifoQueue(maxsize=10)
 max_frame = 0
 
 # init argument tuple for capture frame thread
-params=(args["input"],q,30)
+params=(args["input"], q, 30)
 
 # start thread
 with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
@@ -434,21 +350,20 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
         #frame = vs.read()
         #frame = frame[1] if args.get("input", False) else frame
 
-            #result = f1.result()
-        print(f1.running())
-
-
+        # get new frame from queue
         frame_num, new_frame = q.get(timeout=1)
 
+        # if frame is none exit the loop
         if new_frame is None:
             break
-        print(f'current_frame:{frame_num} max frame:{max_frame}')
 
+        # print(f'current_frame:{frame_num} max frame:{max_frame}')
+        # check if new_frame isnt an earlier frame to prevent rubberbanding
         if frame_num >= max_frame and new_frame is not None:
             max_frame = frame_num
             frame = new_frame
             backup_frame = frame
-
+        # if it is an older frame reuse the most recent frame
         else:
             frame = backup_frame
 
@@ -457,14 +372,12 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
 
         # if we are viewing a video and we did not grab a frame then we
         # have reached the end of the video
-        if args["input"] is not None and frame is None:
-            break
+        #if args["input"] is not None and frame is None:
+        #    break
 
-        # resize the frame to have a maximum width of 500 pixels (the
-        # less data we have, the faster we can process it), then convert
-        # the frame from BGR to RGB for dlib
+        # crop the frame to the roi, resize the frame to have a maximum size
+        # and sharpen it for detection
         frame, frame_detection = preprocess_frame(frame, roi_coord, 700)
-
 
         # if the frame dimensions are empty, set them
         if W is None or H is None:
@@ -490,34 +403,39 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
             status = "Detecting"
             trackers = []
 
+            # run detections on frame and return all detected objects
             detections = run_detection_on_frame(frame_detection)
 
+            # get relevant bounding boxes from detections
             list_of_bounding_boxes, list_of_labels = build_list_of_bounding_boxes(detections)
 
             for bounding_box in list_of_bounding_boxes:
 
-                # (startX, startY, endX, endY) = bounding_box
-                # construct a dlib rectangle object from the bounding
-                # box coordinates and then start the dlib correlation
-                # tracker
+                # start a tracker for each bounding box
                 tracker = initialize_cv2_tracker(frame, bounding_box)
                 #tracker = initialize_dlib_tracker(frame, bounding_box)
 
                 # add the tracker to our list of trackers so we can
                 # utilize it during skip frames
                 trackers.append(tracker)
+
+                # draw box around detections
                 frame = draw_box_from_bb(frame, bounding_box)
-                # otherwise, we should utilize our object *trackers* rather than
-                # object *detectors* to obtain a higher frame processing throughput
+
+
             end_time_detection = time.time()
             print('updating detection: {}'.format(end_time_detection - start_time_detection))
 
+        # otherwise, we should utilize our object *trackers* rather than
+        # object *detectors* to obtain a higher frame processing throughput
         else:
-            # loop over the trackers
             start_time_trackers = time.time()
+
+            # update trackers
             rects, success_list = update_trackers_cv2(trackers, frame)
             #rects = update_trackers_dlib(trackers, frame)
 
+            # draw boxes around successfull tracks
             for count, rec in enumerate(rects):
                 success = success_list[count]
                 if success:
@@ -527,18 +445,12 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
             end_time_trackers = time.time()
             print('updating trackers: {}'.format(end_time_trackers - start_time_trackers))
 
-
-        # draw 2 horizontal lines in the center of the frame -- once an
-        # object crosses this line we will determine whether they were
-        # moving 'up' or 'down'
-        # cv2.line(frame, (0, H // 5), (W, H // 5), (0, 255, 255), 2)
-        # cv2.line(frame, (0, H // 3 * 2), (W, H // 3 * 2), (0, 255, 255), 2)
-        draw_counting_lines(frame, orientation, 100, (255, 255, 255))
+        # draw the lines on the other side of which we will count
+        draw_counting_lines(frame, orientation, offset_dist, (255, 255, 255))
 
         # use the centroid tracker to associate the (1) old object
         # centroids with (2) the newly computed object centroids
         start_time_update_ct = time.time()
-
         objects = ct.update(rects)
 
         # loop over the tracked objects
@@ -558,8 +470,6 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                 # centroid and the mean of *previous* centroids will tell
                 # us in which direction the object is moving (negative for
                 # 'up' and positive for 'down')
-                # y = [c[1] for c in to.centroids]
-                # direction = centroid[1] - np.mean(y)
                 if orientation:
                     direction = to.direction_horizontal()
                 else:
@@ -567,27 +477,11 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
 
                 to.centroids.append(centroid)
 
-                #print('X: {}'.format(to.x_direction))
-                #print('Y: {}'.format(to.y_direction))
-
                 # check to see if the object has been counted or not
                 if not to.counted:
-                    #pass
-                    # if the direction is negative (indicating the object
-                    # is moving up) AND the centroid is above the center
-                    # line, count the object
-                    # if direction < 0 and centroid[1] < H // 3 and person_dict[str(objectID)] > frame_counts_up:
-                    #     totalUp += 1
-                    #     to.counted = True
-                    #
-                    # # if the direction is positive (indicating the object
-                    # # is moving down) AND the centroid is below the
-                    # # center line, count the object
-                    # elif direction > 0 and centroid[1] > H // 3 * 2:
-                    #     if person_dict[str(objectID)] > frame_counts:
-                    #         totalDown += 1
-                    #         to.counted = True
-                    totalUp, totalDown = check_if_count(to, orientation, totalUp, totalDown)
+                    # check if we can count the object
+                    totalUp, totalDown = check_if_count(to, orientation, totalUp, totalDown,offset_dist)
+
             # store the trackable object in our dictionary
             trackableObjects[objectID] = to
 
@@ -625,6 +519,7 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
         key = cv2.waitKey(1) & 0xFF
         end_time_update_ct = time.time()
         print('updating ct and counting: {}'.format(end_time_update_ct - start_time_update_ct))
+
         # Write new info to csv file
         # Determine if total has gone up
         if total < totalUp + totalDown:
@@ -651,11 +546,13 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
         fps.update()
         end_time_frame = time.time()
         print('frame_time: {}'.format(end_time_frame - start_time_frame))
+
     # stop the timer and display FPS information
     fps.stop()
     print("[INFO] elapsed time: {:.2f}".format(fps.elapsed()))
     print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))
     print("Total Frames:{}".format(totalFrames))
+
     # check to see if we need to release the video writer pointer
     if writer is not None:
         writer.release()
