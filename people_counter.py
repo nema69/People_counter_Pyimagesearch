@@ -1,4 +1,5 @@
 # import the necessary packages
+import queue
 from pyimagesearch.centroidtracker import CentroidTracker
 from pyimagesearch.trackableobject import TrackableObject
 from write_csv import create_csv_file
@@ -6,7 +7,6 @@ from write_csv import write_new_value
 from imutils.video import VideoStream
 from imutils.video import FPS
 import numpy as np
-import argparse
 import imutils
 import time
 import dlib
@@ -18,7 +18,6 @@ class PeopleCounter:
         self.prototxt = prototxt
         self.model = model
         self.input = kwargs.get('input', None)
-        print(self.input)
         self.output = kwargs.get('output', None)
         self.confidence = kwargs.get('confidence', 0.4)
         self.skip_frames = kwargs.get('skip_frames', 30)
@@ -150,7 +149,7 @@ class PeopleCounter:
             cv2.line(input_frame, (w // 2 - half_dist, 0),
                      (w // 2 - half_dist, h), colour, 2)
 
-    def main_loop(self, show_output):
+    def main_loop(self, people_counter_command_queue, people_counter_output_queue):
         # Person dict for better Direction detection
         self.person_dict = dict()
 
@@ -210,6 +209,13 @@ class PeopleCounter:
         self.fps = FPS().start()
 
         while True:
+            output = False
+            try:
+                people_counter_command_queue.get(timeout=0.0001)
+                output = True
+            except:
+                pass
+
             start_time_frame = time.time()
 
             # grab the next frame and handle if we are reading from either
@@ -276,8 +282,8 @@ class PeopleCounter:
                     # otherwise, we should utilize our object *trackers* rather than
                     # object *detectors* to obtain a higher frame processing throughput
                 end_time_detection = time.time()
-                print('updating detection: {}'.format(
-                    end_time_detection - start_time_detection))
+                # print('updating detection: {}'.format(
+                #    end_time_detection - start_time_detection))
 
             else:
                 # loop over the trackers
@@ -285,8 +291,8 @@ class PeopleCounter:
                 rects = self.update_trackers_cv2(self.trackers, self.frame)
                 # rects = update_trackers_dlib(trackers, frame)
                 end_time_trackers = time.time()
-                print('updating trackers: {}'.format(
-                    end_time_trackers - start_time_trackers))
+                # print('updating trackers: {}'.format(
+                #    end_time_trackers - start_time_trackers))
             # draw 2 horizontal lines in the center of the frame -- once an
             # object crosses this line we will determine whether they were
             # moving 'up' or 'down'
@@ -372,6 +378,10 @@ class PeopleCounter:
 
             # show the output frame
             cv2.imshow("Frame", self.frame)
+            # pass output to webserver
+            if output:
+                print("Sending output to webserver")
+                people_counter_output_queue.put(self.frame)
             key = cv2.waitKey(1) & 0xFF
 
             # Write new info to csv file
@@ -399,7 +409,7 @@ class PeopleCounter:
             self.totalFrames += 1
             self.fps.update()
             end_time_frame = time.time()
-            print('frame_time: {}'.format(end_time_frame - start_time_frame))
+            #print('frame_time: {}'.format(end_time_frame - start_time_frame))
         # stop the timer and display FPS information
         self.fps.stop()
         print("[INFO] elapsed time: {:.2f}".format(self.fps.elapsed()))

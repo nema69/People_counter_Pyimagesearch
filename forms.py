@@ -7,4 +7,4 @@ from wtforms import SubmitField, BooleanField, DecimalField
 class InterfaceForm(FlaskForm):
     run_people_counting = SubmitField("")
     get_current_frame = SubmitField("")
-    save_to_csv = SubmitField("")
+    download_csv = SubmitField("")

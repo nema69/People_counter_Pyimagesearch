@@ -3,10 +3,12 @@
 
 import argparse
 
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, send_file, Response
 from flask_session import Session
 from flask_bootstrap import Bootstrap
 from forms import InterfaceForm
+from PIL import Image
+import io
 from multiprocessing import Process, Queue
 
 from people_counter import PeopleCounter
@@ -22,15 +24,20 @@ sessInst = Session()
 sessInst.init_app(app)
 
 people_counter_object = None
-people_counter_queue = Queue()
+people_counter_command_queue = Queue()
+people_counter_output_queue = Queue()
 people_counter_process = Process()
-people_counter_started = False
 
 
 @app.route("/", methods=['GET', 'POST'])
 @app.route("/home", methods=['GET', 'POST'])
 def home():
+    global people_counter_process, people_counter_command_queue, people_counter_output_queue, people_counter_object
     form = InterfaceForm()
+    if people_counter_process.is_alive():
+        people_counter_started = True
+    else:
+        people_counter_started = False
 
     if request.method == 'GET':
         pass
@@ -38,15 +45,62 @@ def home():
         if "run_people_counting" in request.form and request.form['run_people_counting'] == 'Start People Counting':
             print("Start counting")
 
-            people_counter_queue = Queue()
+            people_counter_command_queue = Queue()
+            people_counter_output_queue = Queue()
             people_counter_object = PeopleCounter("mobilenet_ssd/MBSSD_PED_deploy.prototxt",
                                                   "mobilenet_ssd/MBSSD_PED.caffemodel", input="videos/MOT20-02.webm")
             people_counter_process = Process(
-                target=people_counter_object.main_loop, args=(False,))
+                target=people_counter_object.main_loop, args=(people_counter_command_queue, people_counter_output_queue,))
             people_counter_process.start()
             people_counter_started = True
 
-    return render_template('home.html', form=form)
+        elif "run_people_counting" in request.form and request.form['run_people_counting'] == 'Stop People Counting':
+            print("Stop counting")
+            people_counter_command_queue = Queue()
+            people_counter_output_queue = Queue()
+            people_counter_process.kill()
+            people_counter_process = Process()
+            people_counter_started = False
+
+        elif "download_csv" in request.form and request.form['download_csv'] == 'Download CSV':
+            return getPlotCSV()
+
+        elif "get_current_frame" in request.form and request.form['get_current_frame'] == 'Get current frame':
+            image()
+
+    return render_template('home.html', form=form, people_counter_started=people_counter_started)
+
+
+@app.route('/image.png')
+def image():
+    global people_counter_output_queue, people_counter_command_queue
+    print("Get output")
+    people_counter_command_queue.put(1)
+
+    try:
+        img = people_counter_output_queue.get(timeout=1)
+        print("Got an output!")
+
+        img = Image.fromarray(img.astype('uint8'))
+        file_object = io.BytesIO()
+        img.save(file_object, 'PNG')
+        file_object.seek(0)
+        print(type(img))
+
+        return send_file(file_object, mimetype='image/PNG')
+    except:
+        print("No new output")
+        return None
+
+
+def getPlotCSV():
+    with open("2022_01_04_16-28-24_output.csv") as fp:
+        csv = fp.read()
+    return Response(
+        csv,
+        mimetype="text/csv",
+        headers={"Content-disposition":
+                 "attachment; filename=file.csv"})
 
 
 def main():
