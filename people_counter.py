@@ -285,7 +285,7 @@ class PeopleCounter:
         if self.input is None:
             print("[INFO] starting video stream...")
             #self.vs = VideoStream(src=0).start()
-            self.cap = cv2.VideoCapture("nvarguscamerasrc ! video/x-raw(memory:NVMM), width=1280, height=720, format=NV12, framerate=30/1 !\
+            self.vs = cv2.VideoCapture("nvarguscamerasrc ! video/x-raw(memory:NVMM), width=1280, height=720, format=NV12, framerate=30/1 !\
         nvvidconv ! video/x-raw, format=BGRx, width=640, height=360 ! videoconvert ! video/x-raw, format=BGR  ! appsink")
             time.sleep(2.0)
 
