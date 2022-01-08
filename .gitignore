@@ -2,6 +2,12 @@
 
 /videos/test_video.mp4
 
+/__pychache__/*
+/.idea/*
+/csv/*
+/flask_session/*
+*.pyc
+
 
 
 # Covers JetBrains IDEs: IntelliJ, RubyMine, PhpStorm, AppCode, PyCharm, CLion, Android Studio, WebStorm and Rider
