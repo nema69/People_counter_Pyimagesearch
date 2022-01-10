@@ -1,0 +1,33 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="content-section">
+    <h2 centerd>Fußgängerzählung User Interface</h2>
+
+    <legend class="border-bottom mb-4"></legend>
+    <!-- <p>This website is hosted on your Gateway.</p> -->
+
+    <h5 centerd>Before you start:</h5>
+
+    <p>
+        Please make sure Camera is connected.
+    </p>
+    <p>
+    <form method="post">
+
+        {% if not people_counter_started %}
+        {{ form.run_people_counting(class="mybtn-active shadow", value="Start People Counting") }}
+        {% else %}
+        {{ form.run_people_counting(class="mybtn-inactive shadow", value="Stop People Counting") }}
+        {% endif %}
+        {{ form.get_current_frame(class="mybtn shadow", value="Get current frame") }}
+        {{ form.download_csv(class="mybtn shadow", value="Download CSV") }}
+
+    </form>
+
+    </p>
+    {% if people_counter_started %}
+    <img src="/image.png" alt="No frame">
+    {% endif %}
+
+</div>
+{% endblock content %}

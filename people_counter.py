@@ -262,7 +262,7 @@ class PeopleCounter:
             self.writer = cv2.VideoWriter(self.output, fourcc, 30,
                                           (self.W, self.H), True)
 
-    def main_loop(self):
+    def main_loop(self, people_counter_command_queue, people_counter_output_queue):
         # --- Setup for Counting and Direction
         self.person_dict = dict()   # Store known persons
         self.frame_counts = 10
@@ -338,6 +338,13 @@ class PeopleCounter:
             # Loop over frames from the video stream
             while True:
                 start_time_frame = time.time()
+
+                web_output = False
+                try:
+                    people_counter_command_queue.get(timeout=0.0001)
+                    web_output = True
+                except:
+                    pass
 
                 # Grab next frame
                 if self.queue:  # Get new frame from queue
@@ -496,6 +503,11 @@ class PeopleCounter:
 
                 # Show the output frame
                 cv2.imshow("People Counter", self.frame)
+                # Pass output to webserver
+                if web_output:
+                    print("Sending output to webserver")
+                    people_counter_output_queue.put(self.frame)
+
                 key = cv2.waitKey(1) & 0xFF
                 end_time_update_ct = time.time()
                 print('Updating ct and counting: {}'.format(
