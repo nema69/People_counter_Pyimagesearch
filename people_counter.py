@@ -286,7 +286,7 @@ ap.add_argument("-s", "--skip-frames", type=int, default=30,
 args = vars(ap.parse_args())
 
 # Setup for Counting and Direction
-offset_dist = 0
+offset_dist = 10
 person_dict = dict()
 frame_counts = 10
 frame_counts_up = 10
@@ -295,6 +295,8 @@ Horizontal = 1
 Counting_direction = ["Vertical", "Horizontal"]
 orientation = Horizontal
 direction_dict = {1: 'Up', 2: 'Down', 3: 'Right', 4: 'Left'}
+border_dist = 50
+
 
 
 # Setup csv file
@@ -484,7 +486,7 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=1,) as executor:
             if (totalFrames + 1) % args["skip_frames"] == 0:
                 #rects_for_iou = rects
 
-                rects_for_iou = [rec for rec in rects if success_list and check_tracker_valid(rec, H, W, 20, orientation)]
+                rects_for_iou = [rec for rec in rects if success_list and check_tracker_valid(rec, H, W, border_dist, orientation)]
         # draw the lines on the other side of which we will count
         draw_counting_lines(frame, orientation, offset_dist, (255, 255, 255))
 
