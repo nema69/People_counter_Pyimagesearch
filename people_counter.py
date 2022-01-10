@@ -12,6 +12,7 @@ import dlib
 import cv2
 from functions import two_point_box_2_width_height_box
 from functions import width_height_box_2_two_point_box
+from functions import bb_intersection_over_union
 import concurrent.futures
 
 import queue
@@ -127,7 +128,7 @@ def initialize_cv2_tracker(input_frame, input_bb):
     new_bb = two_point_box_2_width_height_box(input_bb)
 
     # Create new tracker
-    tracker_ = cv2.TrackerKCF_create()
+    tracker_ = cv2.TrackerCSRT_create()
 
     # Init new tracker
     tracker_.init(input_frame, new_bb)
@@ -243,6 +244,29 @@ def get_roi(input_frame, scale):
     return roi
 
 
+def add_tracked_via_iou(tracker_bbs, detection_bbs, iou_threshold):
+    if len(tracker_bbs) == 0:
+        return detection_bbs
+    if len(detection_bbs) == 0:
+        return tracker_bbs
+    new_bb_list = []
+    for detection_bb in detection_bbs:
+        for tracker_bb in tracker_bbs:
+            if bb_intersection_over_union(tracker_bb, detection_bb) < 1-iou_threshold:
+                new_bb_list.append(tracker_bb)
+    if new_bb_list:
+        detection_bbs.extend(new_bb_list)
+        return detection_bbs
+    return detection_bbs
+
+
+def check_tracker_valid(rec, h, w, border_dist, orientation_):
+    if rec[0] < border_dist or rec[2] > w-border_dist and orientation_:
+        return False
+    if rec[1] < border_dist or rec[3] > h-border_dist and not orientation_:
+        return False
+    return True
+
 # construct the argument parse and parse the arguments
 
 
@@ -317,6 +341,7 @@ H = None
 ct = CentroidTracker(maxDisappeared=args["skip_frames"]*2, maxDistance=50)
 trackers = []
 trackableObjects = {}
+rects_for_iou = []
 
 # initialize the total number of frames processed thus far, along
 # with the total number of objects that have moved either up or down
@@ -326,6 +351,7 @@ totalUp = 0
 
 # start the frames per second throughput estimator
 fps = FPS().start()
+
 # Get one frame for determining ROI
 _, roiframe = vs.read()
 roi_coord = get_roi(roiframe, 0.5)
@@ -338,7 +364,7 @@ max_frame = 0
 params=(args["input"], q, 30)
 
 # start thread
-with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+with concurrent.futures.ThreadPoolExecutor(max_workers=1,) as executor:
     # pack arguments with lamda
     f1 = executor.submit(lambda p: capture_frame(*p), params)
 
@@ -379,7 +405,7 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
 
         # crop the frame to the roi, resize the frame to have a maximum size
         # and sharpen it for detection
-        frame, frame_detection = preprocess_frame(frame, roi_coord, 400)
+        frame, frame_detection = preprocess_frame(frame, roi_coord, 500)
 
         # if the frame dimensions are empty, set them
         if W is None or H is None:
@@ -403,6 +429,8 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
             start_time_detection = time.time()
             # set the status and initialize our new set of object trackers
             status = "Detecting"
+
+
             trackers = []
 
             # run detections on frame and return all detected objects
@@ -410,22 +438,25 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
 
             # get relevant bounding boxes from detections
             list_of_bounding_boxes, list_of_labels = build_list_of_bounding_boxes(detections)
+            print('number of detections: ', len(list_of_bounding_boxes))
+            if rects_for_iou is not None:
+                list_of_bounding_boxes = add_tracked_via_iou(rects_for_iou, list_of_bounding_boxes, 1)
 
             for bounding_box in list_of_bounding_boxes:
 
                 # start a tracker for each bounding box
                 tracker = initialize_cv2_tracker(frame, bounding_box)
-                #tracker = initialize_dlib_tracker(frame, bounding_box)
+                # tracker = initialize_dlib_tracker(frame, bounding_box)
 
                 # add the tracker to our list of trackers so we can
                 # utilize it during skip frames
                 trackers.append(tracker)
-
                 # draw box around detections
                 frame = draw_box_from_bb(frame, bounding_box)
 
-            end_time_detection = time.time()
-            print('updating detection: {}'.format(end_time_detection - start_time_detection))
+
+
+            #print('updating detection: {}'.format(time.time() - start_time_detection))
 
         # otherwise, we should utilize our object *trackers* rather than
         # object *detectors* to obtain a higher frame processing throughput
@@ -439,19 +470,27 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
             # draw boxes around successfull tracks
             for count, rec in enumerate(rects):
                 success = success_list[count]
+
                 if success:
                     frame = draw_box_from_bb(frame, rec)
+
                 else:
                     print('Tracking Error')
-            end_time_trackers = time.time()
-            print('updating trackers: {}'.format(end_time_trackers - start_time_trackers))
 
+
+            #print('updating trackers: {}'.format(time.time() - start_time_trackers))
+            print('number of trackers: ', len(rects))
+
+            if (totalFrames + 1) % args["skip_frames"] == 0:
+                #rects_for_iou = rects
+
+                rects_for_iou = [rec for rec in rects if success_list and check_tracker_valid(rec, H, W, 20, orientation)]
         # draw the lines on the other side of which we will count
         draw_counting_lines(frame, orientation, offset_dist, (255, 255, 255))
 
         # use the centroid tracker to associate the (1) old object
         # centroids with (2) the newly computed object centroids
-        start_time_update_ct = time.time()
+
         objects = ct.update(rects)
 
         # loop over the tracked objects
@@ -518,8 +557,6 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
         # show the output frame
         cv2.imshow("Frame", frame)
         key = cv2.waitKey(1) & 0xFF
-        end_time_update_ct = time.time()
-        print('updating ct and counting: {}'.format(end_time_update_ct - start_time_update_ct))
 
         # Write new info to csv file
         # Determine if total has gone up
@@ -545,8 +582,7 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
         # then update the FPS counter
         totalFrames += 1
         fps.update()
-        end_time_frame = time.time()
-        print('frame_time: {}'.format(end_time_frame - start_time_frame))
+
 
     # stop the timer and display FPS information
     fps.stop()
