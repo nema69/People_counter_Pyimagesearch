@@ -28,10 +28,10 @@ class PeopleCounter:
         self.roi = kwargs.get('roi', True)
         self.queue = kwargs.get('queue', True)
 
-    def preprocess_frame(self, roi_coord, longest_side):
+    def preprocess_frame(self, longest_side):
         if self.roi:
-            self.frame = self.frame[int(roi_coord[1]):int(
-                roi_coord[1]+roi_coord[3]-1), int(roi_coord[0]):int(roi_coord[0]+roi_coord[2]-1)]
+            self.frame = self.frame[int(self.roi_coord[1]):int(
+                self.roi_coord[1]+self.roi_coord[3]-1), int(self.roi_coord[0]):int(self.roi_coord[0]+self.roi_coord[2]-1)]
 
         h, w, _ = self.frame.shape
         if w > h and w > longest_side:
@@ -170,7 +170,7 @@ class PeopleCounter:
                      (w // 2 - half_dist, h), colour, 2)
 
     def draw_box_from_bb(self, bb):
-        if bb is not (0.0, 0.0, 0.0, 0.0):
+        if bb != (0.0, 0.0, 0.0, 0.0):
             startpoint = int(bb[0]), int(bb[1])
             endpoint = int(bb[2]), int(bb[3])
             out_frame = cv2.rectangle(
@@ -233,16 +233,34 @@ class PeopleCounter:
             if frame_ is None:
                 continue
 
-    @staticmethod
-    def get_roi(input_frame, scale):
-        h, w, _ = input_frame.shape
+    def get_roi(self, scale):
+        h, w, _ = self.frame.shape
         nh = int(h * scale)
         nw = int(w * scale)
-        resized_frame = cv2.resize(input_frame, (nw, nh))
+        resized_frame = cv2.resize(self.frame, (nw, nh))
         roi_scaled = cv2.selectROI('ROI', resized_frame, False)
         cv2.destroyWindow('ROI')
         roi = tuple(x/scale for x in roi_scaled)
         return roi
+
+    def init_videoparameters(self):
+        # Get one frame to setup videoparameters
+        _, self.frame = self.vs.read()
+
+        # --- ROI
+        if self.roi:
+            self.roi_coord = self.get_roi(0.5)
+
+        # --- If the frame dimensions are empty, set them
+        self.preprocess_frame(400)
+        (self.H, self.W) = self.frame.shape[:2]
+
+        # --- If we are supposed to be writing a video to disk, initialize
+        # the writer
+        if self.output is not None:
+            fourcc = cv2.VideoWriter_fourcc(*"MJPG")
+            self.writer = cv2.VideoWriter(self.output, fourcc, 30,
+                                          (self.W, self.H), True)
 
     def main_loop(self):
         # --- Setup for Counting and Direction
@@ -283,13 +301,6 @@ class PeopleCounter:
             print("[INFO] opening video file...")
             self.vs = cv2.VideoCapture(self.input)
 
-        # --- Initialize the video writer (we'll instantiate later if need be)
-        self.writer = None
-
-        # --- Initialize the frame dimensions
-        self.W = None       # Width
-        self.H = None       # Height
-
         # --- Instantiate our centroid tracker
         self.ct = CentroidTracker(
             maxDisappeared=self.skip_frames*2, maxDistance=50)
@@ -301,14 +312,12 @@ class PeopleCounter:
         self.totalDown = 0      # Counter for objects that moved up
         self.totalUp = 0        # # Counter for objects that moved down
 
+        self.H = None
+        self.W = None
+        self.roi_coord = None
+
         # --- Start the frames per second throughput estimator
         self.fps = FPS().start()
-
-        # --- ROI
-        if self.roi:
-            # Get one frame for determining ROI
-            _, roiframe = self.vs.read()
-            roi_coord = self.get_roi(roiframe, 0.5)
 
         # --- Build queue for frames, normal queue for video read( preloads frames) and lifoqueue for "live" video"
         if self.queue:
@@ -317,6 +326,8 @@ class PeopleCounter:
 
             # --- Init argument tuple for capture frame thread
             params = (self.input, q, 30)
+
+        self.init_videoparameters()
 
         # --- Start thread
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
@@ -336,7 +347,6 @@ class PeopleCounter:
                     if new_frame is None:
                         break
 
-                    # print(f'current_frame:{frame_num} max frame:{max_frame}')
                     # Check if new_frame isnt an earlier frame to prevent rubberbanding
                     if frame_num >= max_frame and new_frame is not None:
                         max_frame = frame_num
@@ -347,35 +357,15 @@ class PeopleCounter:
                         self.frame = backup_frame
 
                 else:   # Get next frame frome VideoCapture
-                    self.frame = self.vs.read()[1]
-
-                    # Grab the next frame and handle if we are reading from either
-                    # VideoCapture or VideoStream
-                    #
-                    # frame = frame[1] if args.get("input", False) else frame
-
-                # --- Exit when no frame left
-                if self.frame is None:
-                    print("[WARNING] No frame left. Leaving the loop...")
-                    break
+                    _, self.frame = self.vs.read()
+                    # Exit when no frame left
+                    if self.frame is None:
+                        print("[WARNING] No frame left. Leaving the loop...")
+                        break
 
                 # Crop the frame to the roi, resize the frame to have a maximum size
                 # and sharpen it for detection
-                if self.roi:
-                    frame_detection = self.preprocess_frame(roi_coord, 400)
-                else:
-                    frame_detection = self.preprocess_frame(None, 400)
-
-                # --- If the frame dimensions are empty, set them
-                if self.W is None or self.H is None:
-                    (self.H, self.W) = self.frame.shape[:2]
-
-                # --- If we are supposed to be writing a video to disk, initialize
-                # the writer
-                if self.output is not None and self.writer is None:
-                    fourcc = cv2.VideoWriter_fourcc(*"MJPG")
-                    self.writer = cv2.VideoWriter(self.output, fourcc, 30,
-                                                  (self.W, self.H), True)
+                frame_detection = self.preprocess_frame(400)
 
                 # Initialize the current status along with our list of bounding
                 # box rectangles returned by either (1) our object detector or
@@ -492,19 +482,20 @@ class PeopleCounter:
                     (direction_dict[2+(2*self.orientation)], self.totalDown),
                     ("Status", status),
                 ]
-
+                print("hello")
                 # Loop over the info tuples and draw them on our frame
                 for (i, (k, v)) in enumerate(info):
                     text = "{}: {}".format(k, v)
+                    print("hello2")
                     cv2.putText(self.frame, text, (10, self.H - ((i * 20) + 20)),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
 
                 # Check to see if we should write the frame to disk
-                if self.writer is not None:
+                if self.output is not None:
                     self.writer.write(self.frame)
 
                 # Show the output frame
-                cv2.imshow("Frame", self.frame)
+                cv2.imshow("People Counter", self.frame)
                 key = cv2.waitKey(1) & 0xFF
                 end_time_update_ct = time.time()
                 print('Updating ct and counting: {}'.format(
@@ -546,7 +537,7 @@ class PeopleCounter:
             print("Total Frames:{}".format(self.totalFrames))
 
             # Check to see if we need to release the video writer pointer
-            if self.writer is not None:
+            if self.output is not None:
                 self.writer.release()
 
             # If we are not using a video file, stop the camera video stream
@@ -563,6 +554,6 @@ class PeopleCounter:
 
 if __name__ == "__main__":
     pc = PeopleCounter(prototxt="mobilenet_ssd/MobileNetSSD_deploy_py.prototxt",
-                       model="mobilenet_ssd/MobileNetSSD_deploy_py.caffemodel", input="videos/test_video.mp4", skip_frames=10, queue=False)
+                       model="mobilenet_ssd/MobileNetSSD_deploy_py.caffemodel", input="videos/test_video.mp4", skip_frames=10, queue=False, roi=True)
 
     pc.main_loop()
