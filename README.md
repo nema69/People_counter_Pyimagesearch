@@ -11,3 +11,11 @@ Features include:
  - Ouput of CSV files with number and direction of detected Pedestrians
  - GPU acceleration on supported Hardware
  - Optimized performance by threading of workload
+
+
+
+
+https://user-images.githubusercontent.com/61890712/149149307-2f812649-2f36-4f57-9d12-2911bde45d0b.mp4
+
+Code by:
+Luis Rebhan and Jakub Zelonka
