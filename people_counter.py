@@ -12,8 +12,8 @@ import dlib
 import cv2
 from functions import two_point_box_2_width_height_box
 from functions import width_height_box_2_two_point_box
+from functions import bb_intersection_over_union
 import concurrent.futures
-
 import queue
 
 
@@ -243,6 +243,21 @@ class PeopleCounter:
         roi = tuple(x/scale for x in roi_scaled)
         return roi
 
+    def add_tracked_via_iou(self, tracker_bbs, detection_bbs, iou_threshold):
+        if len(tracker_bbs) == 0:
+            return detection_bbs
+        if len(detection_bbs) == 0:
+            return tracker_bbs
+        new_bb_list = []
+        for detection_bb in detection_bbs:
+            for tracker_bb in tracker_bbs:
+                if bb_intersection_over_union(tracker_bb, detection_bb) < 1 - iou_threshold:
+                    new_bb_list.append(tracker_bb)
+        if new_bb_list:
+            detection_bbs.extend(new_bb_list)
+            return detection_bbs
+        return detection_bbs
+
     def init_videoparameters(self):
         # Get one frame to setup videoparameters
         _, self.frame = self.vs.read()
@@ -262,6 +277,13 @@ class PeopleCounter:
             self.writer = cv2.VideoWriter(self.output, fourcc, 30,
                                           (self.W, self.H), True)
 
+    def check_tracker_valid(self, rec, h, w, border_dist, orientation_):
+        if rec[0] < border_dist or rec[2] > w - border_dist and orientation_:
+            return False
+        if rec[1] < border_dist or rec[3] > h - border_dist and not orientation_:
+            return False
+        return True
+
     def main_loop(self, people_counter_command_queue, people_counter_output_queue):
         # --- Setup for Counting and Direction
         self.person_dict = dict()   # Store known persons
@@ -270,6 +292,7 @@ class PeopleCounter:
         self.orientation = 1        # 0: Vertical   1: Horizontal
         self.offset_dist = 0
         direction_dict = {1: 'Up', 2: 'Down', 3: 'Right', 4: 'Left'}
+        self.border_dist = 50
 
         # --- Setup CSV file
         current_file = create_csv_file()
@@ -373,7 +396,8 @@ class PeopleCounter:
                 # Crop the frame to the roi, resize the frame to have a maximum size
                 # and sharpen it for detection
                 frame_detection = self.preprocess_frame(400)
-
+                if self.W is None or self.H is None:
+                    (self.H, self.W) = self.frame.shape[:2]
                 # Initialize the current status along with our list of bounding
                 # box rectangles returned by either (1) our object detector or
                 # (2) the correlation trackers
@@ -394,6 +418,9 @@ class PeopleCounter:
                     # Get relevant bounding boxes from detections
                     list_of_bounding_boxes, _ = self.build_list_of_bounding_boxes()
 
+                    if rects_for_iou is not None:
+                        list_of_bounding_boxes = self.add_tracked_via_iou(rects_for_iou, list_of_bounding_boxes, 0.9)
+
                     for bounding_box in list_of_bounding_boxes:
                         # Start a tracker for each bounding box
                         tracker = self.initialize_cv2_tracker(bounding_box)
@@ -405,10 +432,6 @@ class PeopleCounter:
 
                         # Draw box around detections
                         self.draw_box_from_bb(bounding_box)
-
-                    end_time_detection = time.time()
-                    print('Updating detection: {}'.format(
-                        end_time_detection - start_time_detection))
 
                 # Otherwise, we should utilize our object *trackers* rather than
                 # object *detectors* to obtain a higher frame processing throughput
@@ -430,6 +453,11 @@ class PeopleCounter:
                     print('Updating trackers: {}'.format(
                         end_time_trackers - start_time_trackers))
 
+                    if (self.totalFrames + 1) % self.skip_frames == 0:
+                        # rects_for_iou = rects
+
+                        rects_for_iou = [rec for rec in rects if
+                                         success_list and self.check_tracker_valid(rec, self.H, self.W, self.border_dist, self.orientation)]
                 # Draw the lines on the other side of which we will count
                 self.draw_counting_lines((255, 255, 255))
 
