@@ -12,6 +12,7 @@ import dlib
 import cv2
 from functions import two_point_box_2_width_height_box
 from functions import width_height_box_2_two_point_box
+from functions import bb_intersection_over_union
 import concurrent.futures
 
 import queue
@@ -243,6 +244,21 @@ class PeopleCounter:
         roi = tuple(x/scale for x in roi_scaled)
         return roi
 
+    def add_tracked_via_iou(self, tracker_bbs, detection_bbs, iou_threshold):
+        if len(tracker_bbs) == 0:
+            return detection_bbs
+        if len(detection_bbs) == 0:
+            return tracker_bbs
+        new_bb_list = []
+        for detection_bb in detection_bbs:
+            for tracker_bb in tracker_bbs:
+                if bb_intersection_over_union(tracker_bb, detection_bb) < 1 - iou_threshold:
+                    new_bb_list.append(tracker_bb)
+        if new_bb_list:
+            detection_bbs.extend(new_bb_list)
+            return detection_bbs
+        return detection_bbs
+
     def init_videoparameters(self):
         # Get one frame to setup videoparameters
         _, self.frame = self.vs.read()
@@ -262,6 +278,13 @@ class PeopleCounter:
             self.writer = cv2.VideoWriter(self.output, fourcc, 30,
                                           (self.W, self.H), True)
 
+    def check_tracker_valid(self, rec, h, w, border_dist, orientation_):
+        if rec[0] < border_dist or rec[2] > w - border_dist and orientation_:
+            return False
+        if rec[1] < border_dist or rec[3] > h - border_dist and not orientation_:
+            return False
+        return True
+
     def main_loop(self, people_counter_command_queue, people_counter_output_queue):
         # --- Setup for Counting and Direction
         self.person_dict = dict()   # Store known persons
@@ -270,6 +293,7 @@ class PeopleCounter:
         self.orientation = 1        # 0: Vertical   1: Horizontal
         self.offset_dist = 0
         direction_dict = {1: 'Up', 2: 'Down', 3: 'Right', 4: 'Left'}
+        self.border_dist = 50
 
         # --- Setup CSV file
         current_file = create_csv_file()
@@ -315,6 +339,7 @@ class PeopleCounter:
         self.H = None
         self.W = None
         self.roi_coord = None
+        self.rects_for_iou = None
 
         # --- Start the frames per second throughput estimator
         self.fps = FPS().start()
@@ -394,6 +419,10 @@ class PeopleCounter:
                     # Get relevant bounding boxes from detections
                     list_of_bounding_boxes, _ = self.build_list_of_bounding_boxes()
 
+                    if self.rects_for_iou is not None:
+                        list_of_bounding_boxes = self.add_tracked_via_iou(
+                            self.rects_for_iou, list_of_bounding_boxes, 0.9)
+
                     for bounding_box in list_of_bounding_boxes:
                         # Start a tracker for each bounding box
                         tracker = self.initialize_cv2_tracker(bounding_box)
@@ -429,6 +458,12 @@ class PeopleCounter:
                     end_time_trackers = time.time()
                     print('Updating trackers: {}'.format(
                         end_time_trackers - start_time_trackers))
+
+                    if (self.totalFrames + 1) % self.skip_frames == 0:
+                        # rects_for_iou = rects
+
+                        self.rects_for_iou = [rec for rec in rects if
+                                              success_list and self.check_tracker_valid(rec, self.H, self.W, self.border_dist, self.orientation)]
 
                 # Draw the lines on the other side of which we will count
                 self.draw_counting_lines((255, 255, 255))
@@ -489,11 +524,9 @@ class PeopleCounter:
                     (direction_dict[2+(2*self.orientation)], self.totalDown),
                     ("Status", status),
                 ]
-                print("hello")
                 # Loop over the info tuples and draw them on our frame
                 for (i, (k, v)) in enumerate(info):
                     text = "{}: {}".format(k, v)
-                    print("hello2")
                     cv2.putText(self.frame, text, (10, self.H - ((i * 20) + 20)),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
 
@@ -568,4 +601,4 @@ if __name__ == "__main__":
     pc = PeopleCounter(prototxt="mobilenet_ssd/MobileNetSSD_deploy_py.prototxt",
                        model="mobilenet_ssd/MobileNetSSD_deploy_py.caffemodel", input="videos/test_video.mp4", skip_frames=10, queue=False, roi=True)
 
-    pc.main_loop()
+    pc.main_loop(None, None)
