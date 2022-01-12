@@ -290,7 +290,7 @@ class PeopleCounter:
         self.frame_counts = 10
         self.frame_counts_up = 10
         self.orientation = 1        # 0: Vertical   1: Horizontal
-        self.offset_dist = 0
+        self.offset_dist = 10
         direction_dict = {1: 'Up', 2: 'Down', 3: 'Right', 4: 'Left'}
         self.border_dist = 50
 
@@ -329,6 +329,7 @@ class PeopleCounter:
             maxDisappeared=self.skip_frames*2, maxDistance=50)
         self.trackers = []              # List to store each tracker
         self.trackableObjects = {}      # Map eache unique objectID to a trackable object
+        self.rects_for_iou = []
 
         # --- Counters
         self.totalFrames = 0    # Number of processed frames
@@ -418,8 +419,8 @@ class PeopleCounter:
                     # Get relevant bounding boxes from detections
                     list_of_bounding_boxes, _ = self.build_list_of_bounding_boxes()
 
-                    if rects_for_iou is not None:
-                        list_of_bounding_boxes = self.add_tracked_via_iou(rects_for_iou, list_of_bounding_boxes, 0.9)
+                    if self.rects_for_iou is not None:
+                        list_of_bounding_boxes = self.add_tracked_via_iou(self.rects_for_iou, list_of_bounding_boxes, 0.9)
 
                     for bounding_box in list_of_bounding_boxes:
                         # Start a tracker for each bounding box
@@ -456,7 +457,7 @@ class PeopleCounter:
                     if (self.totalFrames + 1) % self.skip_frames == 0:
                         # rects_for_iou = rects
 
-                        rects_for_iou = [rec for rec in rects if
+                        self.rects_for_iou = [rec for rec in rects if
                                          success_list and self.check_tracker_valid(rec, self.H, self.W, self.border_dist, self.orientation)]
                 # Draw the lines on the other side of which we will count
                 self.draw_counting_lines((255, 255, 255))
@@ -596,4 +597,4 @@ if __name__ == "__main__":
     pc = PeopleCounter(prototxt="mobilenet_ssd/MobileNetSSD_deploy_py.prototxt",
                        model="mobilenet_ssd/MobileNetSSD_deploy_py.caffemodel", input="videos/test_video.mp4", skip_frames=10, queue=False, roi=True)
 
-    pc.main_loop()
+    pc.main_loop(None, None)
