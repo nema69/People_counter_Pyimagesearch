@@ -1,7 +1,7 @@
 # import the necessary packages
 from os import stat
-from pyimagesearch.centroidtracker import CentroidTracker
-from pyimagesearch.trackableobject import TrackableObject
+from centroidTracker.centroidtracker import CentroidTracker
+from centroidTracker.trackableobject import TrackableObject
 from write_csv import create_csv_file
 from write_csv import write_new_value
 from imutils.video import VideoStream
