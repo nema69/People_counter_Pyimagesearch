@@ -17,5 +17,8 @@ Features include:
 
 https://user-images.githubusercontent.com/61890712/149149307-2f812649-2f36-4f57-9d12-2911bde45d0b.mp4
 
+![image](https://user-images.githubusercontent.com/61890712/149149778-f7e553af-9cb6-47ee-b6c0-9526b6e84067.png)
+
+
 Code by:
 Luis Rebhan and Jakub Zelonka
