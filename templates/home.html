@@ -9,9 +9,8 @@
             {{ form.submit(class="mybtn-inactive shadow", value="Stop") }}
             {% if set_roi %}
             {{ form.submit(class="mybtn shadow", value="Set ROI") }}
-            {% else %}
-            {{ form.submit(class="mybtn shadow", value="Get current frame") }}
             {% endif %}
+            {{ form.submit(class="mybtn shadow", value="Get current frame") }}
             {% endif %}
             {{ form.submit(class="mybtn shadow", value="Download CSV") }}
         </p>
