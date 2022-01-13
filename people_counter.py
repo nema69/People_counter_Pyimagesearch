@@ -252,6 +252,8 @@ class PeopleCounter:
                 try:
                     print("trying")
                     roi_scaled = command_queue.get(timeout=2)
+                    if type(roi_scaled) is not tuple:
+                        continue
                     print("done")
                     break
                 except:
