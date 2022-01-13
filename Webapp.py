@@ -56,10 +56,18 @@ def home():
             # Get input parameter
             prototxt = webdata.get('prototxt')
             model = webdata.get('model')
-            input = webdata.get('input') if (
-                'input' in webdata.keys()) else None
-            output = webdata.get(
-                'output') if 'output' in webdata.keys() else None
+            if ('input' in webdata.keys()):
+                input = webdata.get('input')
+                if input == "":
+                    input = None
+            else:
+                None
+            if ('output' in webdata.keys()):
+                output = webdata.get('output')
+                if output == "":
+                    output = None
+            else:
+                None
             confidence = float(webdata.get(
                 'confidence')) if 'confidence' in webdata.keys() else 0.4
             skip_frames = int(webdata.get(
@@ -101,7 +109,7 @@ def home():
             set_roi = roi
 
         elif webdata.get('submit') == 'Stop':
-            people_counter_process.kill()
+            people_counter_process.terminate()
             people_counter_started = False
             set_roi = False
             frame_last = None
