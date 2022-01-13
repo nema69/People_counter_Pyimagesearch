@@ -113,6 +113,8 @@ def home():
             people_counter_started = False
             set_roi = False
             frame_last = None
+            frame_w = 0
+            frame_h = 0
             people_counter_command_queue = Queue()
             people_counter_output_queue = Queue()
             people_counter_process = Process()
