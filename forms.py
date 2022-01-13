@@ -6,15 +6,17 @@ from wtforms.fields.simple import BooleanField
 
 
 class InterfaceForm(FlaskForm):
-    prototxt = StringField("mobilenet")
-    model = StringField("model")
-    input = StringField("")
-    output = StringField("")
-    confidence = DecimalField("")
-    skip_frames = DecimalField("")
-    roi = BooleanField("")
-    queue = BooleanField("")
+    prototxt = StringField('')
+    model = StringField('')
+    input = StringField('')
+    output = StringField('')
+    confidence = DecimalField('')
+    skip_frames = DecimalField('')
+    frame_counts_up = DecimalField('')
+    orientation = DecimalField('')
+    offset_dist = DecimalField('')
+    border_dist = DecimalField('')
+    roi = BooleanField('')
+    queue = BooleanField('')
 
-    run_people_counting = SubmitField("")
-    get_current_frame = SubmitField("")
-    download_csv = SubmitField("")
+    submit = SubmitField('')

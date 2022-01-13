@@ -1,74 +1,138 @@
 {% extends "layout.html" %}
 {% block content %}
 <div class="content-section">
-    <h2 centerd>Fußgängerzählung User Interface</h2>
-
-    <legend class="border-bottom mb-4"></legend>
-    <!-- <p>This website is hosted on your Gateway.</p> -->
-
-    <h5>Before you start:</h5>
-    <p>
-        Please make sure Camera is connected.
-    </p>
-
-    <h5>Config:</h5>
-    <p>
-    <table style="width: 50%;">
-        <tr>
-            <td>prototxt:</td>
-            <td>{{form.prototxt(class="form-control-sm mb-2", value="mobilenet_ssd/MobileNetSSD_deploy_py.prototxt")}}
-            </td>
-        </tr>
-        <tr>
-            <td>model:</td>
-            <td>{{form.model(class="form-control-sm mb-2", value="mobilenet_ssd/MobileNetSSD_deploy_py.caffemodel")}}
-            </td>
-        </tr>
-        <tr>
-            <td>input:</td>
-            <td>{{form.input(class="form-control-sm mb-2", value="videos/test_video.mp4")}}</td>
-        </tr>
-        <tr>
-            <td>output:</td>
-            <td>{{form.output(class="form-control-sm mb-2", value="")}}
-            </td>
-        </tr>
-        <tr>
-            <td>confidence:</td>
-            <td> {{form.confidence(class="form-control-sm mb-2", value="0.4")}}
-            </td>
-        </tr>
-        <tr>
-            <td>skip_frames:</td>
-            <td style="width: 100px;">{{form.skip_frames(class="form-control-sm mb-2", value="30")}}
-            </td>
-        </tr>
-        <tr>
-            <td>roi:</td>
-            <td>{{form.roi(class="form-control-sm mb-2", value="checked")}}
-            </td>
-        </tr>
-        <tr>
-            <td>queue:</td>
-            <td>{{form.roi(class="form-control-sm mb-2", value="checked")}}
-            </td>
-        </tr>
-    </table>
-    </p>
-    <p>
     <form method="post">
-
+        <p>
+            {% if not people_counter_started %}
+            {{ form.submit(class="mybtn-active shadow", value="Start") }}
+            {% else %}
+            {{ form.submit(class="mybtn-inactive shadow", value="Stop") }}
+            {% if set_roi %}
+            {{ form.submit(class="mybtn shadow", value="Set ROI") }}
+            {% else %}
+            {{ form.submit(class="mybtn shadow", value="Get current frame") }}
+            {% endif %}
+            {% endif %}
+            {{ form.submit(class="mybtn shadow", value="Download CSV") }}
+        </p>
         {% if not people_counter_started %}
-        {{ form.run_people_counting(class="mybtn-active shadow", value="Start People Counting") }}
-        {% else %}
-        {{ form.run_people_counting(class="mybtn-inactive shadow", value="Stop People Counting") }}
+        <h5>Before you start:</h5>
+        <p>
+            Please make sure Camera is connected.
+        </p>
+        <h5>Config:</h5>
+        <p>
+        <table style="width: 50%;">
+            <tr>
+                <td>prototxt:</td>
+                <td>{{form.prototxt(class="form-control-sm mb-2",
+                    value="mobilenet_ssd/MobileNetSSD_deploy_py.prototxt")}}
+                </td>
+            </tr>
+            <tr>
+                <td>model:</td>
+                <td>{{form.model(class="form-control-sm mb-2",
+                    value="mobilenet_ssd/MobileNetSSD_deploy_py.caffemodel")}}
+                </td>
+            </tr>
+            <tr>
+                <td>input:</td>
+                <td>{{form.input(class="form-control-sm mb-2", value="videos/test_video.mp4")}}</td>
+            </tr>
+            <tr>
+                <td>output:</td>
+                <td>{{form.output(class="form-control-sm mb-2", value="")}}
+                </td>
+            </tr>
+            <tr>
+                <td>confidence:</td>
+                <td style="width: 100px;"> {{form.confidence(class="form-control-sm mb-2", value=0.4)}}
+                </td>
+            </tr>
+            <tr>
+                <td>skip_frames:</td>
+                <td style="width: 100px;">{{form.skip_frames(class="form-control-sm mb-2", value=10)}}
+                </td>
+            </tr>
+            <tr>
+                <td>frame_counts_up:</td>
+                <td style="width: 100px;"> {{form.frame_counts_up(class="form-control-sm mb-2", value=8)}}
+                </td>
+            </tr>
+            <tr>
+                <td>orientation:</td>
+                <td style="width: 100px;">{{form.skip_frames(class="form-control-sm mb-2", value=1)}}
+                </td>
+            </tr>
+            <tr>
+                <td>offset_dist:</td>
+                <td style="width: 100px;"> {{form.offset_dist(class="form-control-sm mb-2", value=2)}}
+                </td>
+            </tr>
+            <tr>
+                <td>border_dist:</td>
+                <td style="width: 100px;">{{form.border_dist(class="form-control-sm mb-2", value=50)}}
+                </td>
+            </tr>
+            <tr>
+                <td>roi:</td>
+                <td>{{form.roi(class="form-control-sm mb-2", value="")}}
+                </td>
+            </tr>
+            <tr>
+                <td>queue:</td>
+                <td>{{form.queue(class="form-control-sm mb-2", value="")}}
+                </td>
+            </tr>
+        </table>
+        </p>
         {% endif %}
-        {{ form.get_current_frame(class="mybtn shadow", value="Get current frame") }}
-        {{ form.download_csv(class="mybtn shadow", value="Download CSV") }}
+
+
+        {% if set_roi %}
+        <h5>Set ROI values:</h5>
+        <p>
+        <table>
+            <tr>
+                <td>
+                    X (From):
+                </td>
+                <td>
+                    <input type="range" min="0" max={{frame_w}} style="width: 500px;" name="sliderXfrom" />
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    X (To):
+                </td>
+                <td>
+                    <input type="range" min="0" max={{frame_w}} style="width: 500px;" name="sliderXto" />
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    Y (From):
+                </td>
+                <td>
+                    <input type="range" min="0" max={{frame_h}} style="width: 500px;" name="sliderYfrom" />
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    Y (To):
+                </td>
+                <td>
+                    <input type="range" min="0" max={{frame_h}} style="width: 500px;" name="sliderYto" />
+                </td>
+            </tr>
+        </table>
+        </p>
+        {% endif %}
+
 
     </form>
 
-    </p>
+
     {% if people_counter_started %}
     <img src="/image.png" alt="No frame">
     {% endif %}

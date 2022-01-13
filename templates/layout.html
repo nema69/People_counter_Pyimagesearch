@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
-    <head>
+
+<head>
 
     <!-- Required meta tags -->
     <meta charset="utf-8">
@@ -11,7 +12,7 @@
 
     <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"></script>
     <script type="text/javascript">
-        var $SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
+        var $SCRIPT_ROOT = {{ request.script_root| tojson | safe }};
     </script>
 
     <script type="text/javascript" src="{{ url_for('static', filename='bootstrap.js')}}"></script>
@@ -19,11 +20,11 @@
 
     {% block script %}{% endblock %}
 
-        {% if title %}
-            <title>{{title}}</title>
-        {% else %}
-            <title>Fußgängerzählung</title>
-        {% endif %}
+    {% if title %}
+    <title>{{title}}</title>
+    {% else %}
+    <title>Fußgängerzählung</title>
+    {% endif %}
 
     <style>
         .myselect {
@@ -37,7 +38,7 @@
         .bg-steel {
             background-color: #000044;
         }
-        
+
         .header-logo {
             margin-right: 1vw;
             width: 40px;
@@ -48,41 +49,30 @@
             color: #000044;
         }
 
-        h1, h2, h3, h4, h5, h6 {
+        h1,
+        h2,
+        h3,
+        h4,
+        h5,
+        h6 {
             color: #000044;
         }
     </style>
 
-    </head>
+</head>
 
-    <body>
-        <header class="site-header">
-            <nav class="navbar navbar-expand-md navbar-dark bg-steel fixed-top">
-                <div class="container">
-                    <a class="navbar-brand mr-4" href="/">Home</a>
-                    <button class="navbar-toggler"
-                        type="button"
-                        data-toggle="collapse"
-                        data-target="#navbarToggle"
-                        aria-controls="navbarToggle"
-                        aria-expanded="false"
-                        aria-label="Toggle navigation">
-                        <span class="navbar-toggler-icon"></span>
-                    </button>
+<body>
+    <header class="site-header">
+        <nav class="navbar navbar-expand-md navbar-dark bg-steel fixed-top">
+            <div class="container">
+                <div class="navbar-brand mr-4">Fußgängerzählung User Interface</div>
+            </div>
+        </nav>
+    </header>
 
-                    <div class="collapse navbar-collapse" id="navbarToggle">
-                        <div class="navbar-nav mr-auto">
-                        </div>
-                        <!-- Navbar Right Side -->
-                        <div class="navbar-nav">
-                        </div>
-                    </div>
-                </div>
-            </nav>
-        </header>
+    <main role="main" class="container">
+        {% block content %}{% endblock %}
+    </main>
+</body>
 
-        <main role="main" class="container">
-            {% block content %}{% endblock %}
-        </main>
-    </body>
 </html>

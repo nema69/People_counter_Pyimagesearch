@@ -28,6 +28,12 @@ class PeopleCounter:
         self.skip_frames = kwargs.get('skip_frames', 30)
         self.roi = kwargs.get('roi', True)
         self.queue = kwargs.get('queue', True)
+        self.frame_counts_up = kwargs.get('frame_counts_up', 8)
+        # 0: Vertical   1: Horizontal
+        self.orientation = kwargs.get('orientation', 1)
+        self.offset_dist = kwargs.get('offset_dist', 2)
+        self.border_dist = kwargs.get('border_dist', 50)
+        self.webserver = kwargs.get('webserver', False)
 
     def preprocess_frame(self, longest_side):
         if self.roi:
@@ -216,7 +222,7 @@ class PeopleCounter:
             # is moving down) AND the centroid is below the
             # center line, count the object
             elif self.direction > 0 and self.centroid[0] > self.W // 2 + self.offset_dist:
-                if self.person_dict[str(self.objectID)] > self.frame_counts:
+                if self.person_dict[str(self.objectID)] > self.frame_counts_up:
                     self.totalDown += 1
                     to.counted = True
 
@@ -234,14 +240,28 @@ class PeopleCounter:
             if frame_ is None:
                 continue
 
-    def get_roi(self, scale):
+    def get_roi(self, command_queue, output_queue):
+        scale = 0.25 if self.webserver else 0.5
         h, w, _ = self.frame.shape
         nh = int(h * scale)
         nw = int(w * scale)
         resized_frame = cv2.resize(self.frame, (nw, nh))
-        roi_scaled = cv2.selectROI('ROI', resized_frame, False)
-        cv2.destroyWindow('ROI')
+        if self.webserver:
+            output_queue.put(resized_frame)
+            while(True):
+                try:
+                    print("trying")
+                    roi_scaled = command_queue.get(timeout=2)
+                    print("done")
+                    break
+                except:
+                    print("Waiting for user input...")
+        else:
+            roi_scaled = cv2.selectROI('ROI', resized_frame, False)
+            cv2.destroyWindow('ROI')
         roi = tuple(x/scale for x in roi_scaled)
+
+        print(roi)
         return roi
 
     def add_tracked_via_iou(self, tracker_bbs, detection_bbs, iou_threshold):
@@ -259,13 +279,13 @@ class PeopleCounter:
             return detection_bbs
         return detection_bbs
 
-    def init_videoparameters(self):
+    def init_videoparameters(self, command_queue, output_queue):
         # Get one frame to setup videoparameters
         _, self.frame = self.vs.read()
 
         # --- ROI
         if self.roi:
-            self.roi_coord = self.get_roi(0.5)
+            self.roi_coord = self.get_roi(command_queue, output_queue)
 
         # --- If the frame dimensions are empty, set them
         self.preprocess_frame(400)
@@ -288,12 +308,8 @@ class PeopleCounter:
     def main_loop(self, people_counter_command_queue, people_counter_output_queue):
         # --- Setup for Counting and Direction
         self.person_dict = dict()   # Store known persons
-        self.frame_counts = 10
-        self.frame_counts_up = 10
-        self.orientation = 1        # 0: Vertical   1: Horizontal
-        self.offset_dist = 0
+
         direction_dict = {1: 'Up', 2: 'Down', 3: 'Right', 4: 'Left'}
-        self.border_dist = 50
 
         # --- Setup CSV file
         current_file = create_csv_file()
@@ -341,6 +357,8 @@ class PeopleCounter:
         self.roi_coord = None
         self.rects_for_iou = None
 
+        self.draw_output = False if self.webserver else True
+
         # --- Start the frames per second throughput estimator
         self.fps = FPS().start()
 
@@ -352,7 +370,8 @@ class PeopleCounter:
             # --- Init argument tuple for capture frame thread
             params = (self.input, q, 30)
 
-        self.init_videoparameters()
+        self.init_videoparameters(
+            people_counter_command_queue, people_counter_output_queue)
 
         # --- Start thread
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
@@ -363,13 +382,14 @@ class PeopleCounter:
             # Loop over frames from the video stream
             while True:
                 start_time_frame = time.time()
-
                 web_output = False
-                try:
-                    people_counter_command_queue.get(timeout=0.0001)
-                    web_output = True
-                except:
-                    pass
+                if self.webserver:
+                    try:
+                        if (people_counter_command_queue.get(timeout=0.0001) == "frame"):
+                            web_output = True
+                            self.draw_output = True
+                    except:
+                        self.draw_output = False
 
                 # Grab next frame
                 if self.queue:  # Get new frame from queue
@@ -433,7 +453,8 @@ class PeopleCounter:
                         self.trackers.append(tracker)
 
                         # Draw box around detections
-                        self.draw_box_from_bb(bounding_box)
+                        if self.draw_output:
+                            self.draw_box_from_bb(bounding_box)
 
                     end_time_detection = time.time()
                     print('Updating detection: {}'.format(
@@ -449,12 +470,14 @@ class PeopleCounter:
                     #rects = update_trackers_dlib(trackers, frame)
 
                     # Draw boxes around successfull tracks
-                    for count, rec in enumerate(rects):
-                        success = success_list[count]
-                        if success:
-                            self.draw_box_from_bb(rec)
-                        else:
-                            print('Tracking Error')
+                    if self.draw_output:
+                        for count, rec in enumerate(rects):
+                            success = success_list[count]
+
+                            if success:
+                                self.draw_box_from_bb(rec)
+                            else:
+                                print('Tracking Error')
                     end_time_trackers = time.time()
                     print('Updating trackers: {}'.format(
                         end_time_trackers - start_time_trackers))
@@ -466,7 +489,8 @@ class PeopleCounter:
                                               success_list and self.check_tracker_valid(rec, self.H, self.W, self.border_dist, self.orientation)]
 
                 # Draw the lines on the other side of which we will count
-                self.draw_counting_lines((255, 255, 255))
+                if self.draw_output:
+                    self.draw_counting_lines((255, 255, 255))
 
                 # Use the centroid tracker to associate the (1) old object
                 # centroids with (2) the newly computed object centroids
@@ -511,35 +535,39 @@ class PeopleCounter:
                         self.person_dict[str(objectID)] += 1
                     else:
                         self.person_dict[str(objectID)] = 0
-                    text = "ID {}".format(objectID)
-                    cv2.putText(self.frame, text, (centroid[0] - 10, centroid[1] - 10),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-                    cv2.circle(
-                        self.frame, (centroid[0], centroid[1]), 4, (0, 255, 0), -1)
+                    if self.draw_output:
+                        text = "ID {}".format(objectID)
+                        cv2.putText(self.frame, text, (centroid[0] - 10, centroid[1] - 10),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                        cv2.circle(
+                            self.frame, (centroid[0], centroid[1]), 4, (0, 255, 0), -1)
 
                 # Construct a tuple of information we will be displaying on the
                 # frame
-                info = [
-                    (direction_dict[1+(2*self.orientation)], self.totalUp),
-                    (direction_dict[2+(2*self.orientation)], self.totalDown),
-                    ("Status", status),
-                ]
-                # Loop over the info tuples and draw them on our frame
-                for (i, (k, v)) in enumerate(info):
-                    text = "{}: {}".format(k, v)
-                    cv2.putText(self.frame, text, (10, self.H - ((i * 20) + 20)),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+                if self.draw_output:
+                    info = [
+                        (direction_dict[1+(2*self.orientation)], self.totalUp),
+                        (direction_dict[2+(2*self.orientation)],
+                         self.totalDown),
+                        ("Status", status),
+                    ]
+                    # Loop over the info tuples and draw them on our frame
+                    for (i, (k, v)) in enumerate(info):
+                        text = "{}: {}".format(k, v)
+                        cv2.putText(self.frame, text, (10, self.H - ((i * 20) + 20)),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+
+                    # Pass output to webserver
+                    if web_output:
+                        print("Sending output to webserver")
+                        people_counter_output_queue.put(self.frame)
+                    # Show the output frame
+                    else:
+                        cv2.imshow("People Counter", self.frame)
 
                 # Check to see if we should write the frame to disk
                 if self.output is not None:
                     self.writer.write(self.frame)
-
-                # Show the output frame
-                cv2.imshow("People Counter", self.frame)
-                # Pass output to webserver
-                if web_output:
-                    print("Sending output to webserver")
-                    people_counter_output_queue.put(self.frame)
 
                 key = cv2.waitKey(1) & 0xFF
                 end_time_update_ct = time.time()
