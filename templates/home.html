@@ -16,10 +16,6 @@
             {{ form.submit(class="mybtn shadow", value="Download CSV") }}
         </p>
         {% if not people_counter_started %}
-        <h5>Before you start:</h5>
-        <p>
-            Please make sure Camera is connected.
-        </p>
         <h5>Config:</h5>
         <p>
         <table style="width: 50%;">
@@ -36,8 +32,9 @@
                 </td>
             </tr>
             <tr>
-                <td>input:</td>
+                <td>input: (Empty = camera)</td>
                 <td>{{form.input(class="form-control-sm mb-2", value="videos/test_video.mp4")}}</td>
+                <td></td>
             </tr>
             <tr>
                 <td>output:</td>
