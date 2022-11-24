@@ -1,4 +1,4 @@
-# KI Pedestrian Counter
+# AI Pedestrian Counter
 *Project "Mechanische Integration WS 2021/22". Counting Pedestrians using computer vision on a Nvidia Jetson Nano 4GB.*
 
 For the course "Mechanische Integration WS 21/22" held by Prof. Dr. Leibl and Prof. Dr. Steinkogler in cooperation with the "Stadt München Referat Mobilität" our group developed a pedestrian counting system using computer vision.
